@@ -1,0 +1,451 @@
+# Values de la release otel-demo, exportées le 2026-11-02.
+# Le certificat public et hostAliases ciblent le Minikube local otel-demo.
+default:
+  image:
+    tag: latest
+    pullPolicy: IfNotPresent
+  envOverrides:
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: service.version={{ .Chart.AppVersion }},service.namespace=opentelemetry-demo,deployment.environment.name=local,k8s.cluster.name=otel-demo
+components:
+  agent:
+    enabled: false
+  chatbot:
+    enabled: false
+  mcp:
+    enabled: false
+  frontend-proxy:
+    service:
+      type: NodePort
+      port: 8080
+      nodePort: 30080
+  astronomy-db:
+    imageOverride:
+      repository: postgres
+      tag: '18.6'
+  valkey-cart:
+    imageOverride:
+      repository: ghcr.io/valkey-io/valkey
+      tag: 9.1.2-alpine3.24
+  accounting:
+    initContainers:
+    - name: wait-for-kafka
+      image: docker.io/library/busybox:1.38.0
+      command:
+      - sh
+      - -c
+      - until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;
+      imagePullPolicy: IfNotPresent
+    enabled: false
+  cart:
+    initContainers:
+    - name: wait-for-valkey-cart
+      image: docker.io/library/busybox:1.38.0
+      command:
+      - sh
+      - -c
+      - until nc -z -v -w30 valkey-cart 6379; do echo waiting for valkey-cart; sleep 2; done;
+      imagePullPolicy: IfNotPresent
+  checkout:
+    initContainers: []
+    envOverrides:
+    - name: KAFKA_ADDR
+      value: ''
+    - name: KAFKA_TOPIC
+      value: ''
+  fraud-detection:
+    initContainers:
+    - name: wait-for-kafka
+      image: docker.io/library/busybox:1.38.0
+      command:
+      - sh
+      - -c
+      - until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;
+      imagePullPolicy: IfNotPresent
+    enabled: false
+  product-catalog:
+    initContainers:
+    - name: wait-for-astronomy-db
+      image: docker.io/library/busybox:1.38.0
+      command:
+      - sh
+      - -c
+      - until nc -z -v -w30 astronomy-db 5432; do echo waiting for astronomy-db; sleep 2; done;
+      imagePullPolicy: IfNotPresent
+  shipping:
+    initContainers:
+    - name: wait-for-flagd
+      image: docker.io/library/busybox:1.38.0
+      command:
+      - sh
+      - -c
+      - until nc -z -v -w30 flagd 8013; do echo waiting for flagd; sleep 2; done;
+      imagePullPolicy: IfNotPresent
+  flagd:
+    initContainers:
+    - name: init-config
+      image: docker.io/library/busybox:1.38.0
+      command:
+      - sh
+      - -c
+      - cp /config-ro/demo.flagd.json /config-rw/demo.flagd.json && cat /config-rw/demo.flagd.json
+      volumeMounts:
+      - mountPath: /config-ro
+        name: config-ro
+      - mountPath: /config-rw
+        name: config-rw
+      imagePullPolicy: IfNotPresent
+  kafka:
+    enabled: false
+  telemetry-docs:
+    enabled: false
+opentelemetry-collector:
+  image:
+    repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+    tag: 0.160.0
+    pullPolicy: IfNotPresent
+  hostAliases:
+  - ip: 192.168.49.2
+    hostnames:
+    - otel-demo
+  extraVolumes:
+  - name: kubelet-ca
+    configMap:
+      name: minikube-kubelet-ca
+  extraVolumeMounts:
+  - name: kubelet-ca
+    mountPath: /etc/otel/kubelet-ca
+    readOnly: true
+  extraManifests:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: minikube-kubelet-ca
+      namespace: otel-demo
+    data:
+      ca.crt: |
+        -----BEGIN CERTIFICATE-----
+        MIIDLzCCAhegAwIBAgIIImh18wzHC+4wDQYJKoZIhvcNAQELBQAwIjEgMB4GA1UE
+        AwwXb3RlbC1kZW1vLWNhQDE3OTM1NDgzNDMwHhcNMjYxMTAxMTQ1MjIzWhcNMjcx
+        MTAxMTQ1MjIzWjAfMR0wGwYDVQQDDBRvdGVsLWRlbW9AMTc5MzU0ODM0MzCCASIw
+        DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANJWAYyUZmM2eKlbBVLXvJsuIeLl
+        D7BOC+mUuICRZiz/Zm+eobqi5IHLaTdpJAbMv5ZKAbButQkeDxTmxujgKZdwiwqv
+        0A3X8s2a8MjQ4bYAZTvHY0rH341VzxbS1kH5d1TlEi4tCkZ9HNLT3bxS/+Uw5+Np
+        NpavznIKkFdjVu0zuC0j6AE8WfyhHPTtk1w3LSBqEER3EUWjPOZXqJkJ1raeJA2C
+        fsAZw+YpbcMp237vlAL9jCPMG/FnLpEMmQAlbWM3iwUz+me3C0t+DYiJgW3vJGib
+        YVDVPq6BaGlM5w6oUlFQM92UbGa1sGU5Ep3d4HYi4y8ca5OIfp+gJjSGQ4ECAwEA
+        AaNsMGowDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMAwGA1Ud
+        EwEB/wQCMAAwHwYDVR0jBBgwFoAUa/Dl/Va2rK2qMiCHo5it9VEvmcAwFAYDVR0R
+        BA0wC4IJb3RlbC1kZW1vMA0GCSqGSIb3DQEBCwUAA4IBAQAMNOrtjw27b97ohPtq
+        ySb9mT0nxksuQiTIz105/uwS1OHGj2EqgQuBHZk3k1VLQlutVspwkO33W8s83j44
+        BoVa6OKapelLUis6RYcYxOAlEnsllKDOJBt/5Uxin1GSjYyj6tQ6e17V9yrw6lF9
+        m7IHbSTxin9dgpc9Z3ctSeFYZKQ1fVGL5jwBSnuYZrV0mTh1gjQNYd9ZP6fMG0Z0
+        DKYUgwLBLv8iwP6tZdJ1EK0R0uqathbIqI9QV9GRN9Bp1D7/+4wDhgq47BKlP2sH
+        zbS9SnIqDJ4235CsIwp1UXVcndzlNZdYUES/pJ/9y6S//UojfBvQUzQnZCCXlW8F
+        RmIT
+        -----END CERTIFICATE-----
+        -----BEGIN CERTIFICATE-----
+        MIIDCDCCAfCgAwIBAgIIXWiBEcWy8rIwDQYJKoZIhvcNAQELBQAwIjEgMB4GA1UE
+        AwwXb3RlbC1kZW1vLWNhQDE3OTM1NDgzNDMwHhcNMjYxMTAxMTQ1MjIzWhcNMjcx
+        MTAxMTQ1MjIzWjAiMSAwHgYDVQQDDBdvdGVsLWRlbW8tY2FAMTc5MzU0ODM0MzCC
+        ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMhDl9Qr31BVMdZ28yIaxH4p
+        PSnbhB+QnvJZFCbjc7Sz3VLJ5YBYU+HL5HpVd6wZhXpbMnu+9mkuEDEx6kffcDNB
+        z24nAQjHdzPYaF4MJcaw/54uh9+ZCc44OCG6AV66irxWdP8bcv4yvR01bpzo+bwb
+        GEpEngbHPfBmW5+l9dtUf6czqKdlIHSm49JtdBJJaoLtgkSl/7moKYD2aVx/4vtd
+        boglZwkHiNEZOCWJHltl7P+x1nHEQ11T7IeqtiBPJ+EL6fPaOgakrewdQ2P0p6l9
+        Y43x6qW88h3L6e3xlHFvZFkNlPHc9bf/T86Aw94cFgJoSqhWMcU2XDIqcWsvRFUC
+        AwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0O
+        BBYEFGvw5f1WtqytqjIgh6OYrfVRL5nAMA0GCSqGSIb3DQEBCwUAA4IBAQCgx/mI
+        XceObEBWiVbYmHRCVKwwG3jGgub50NtpTXtVGq2x1/2mC0xrCL9a97/JwA/cgICK
+        4gw9iNh2Lui18ByZFrCqjqA8Y8PK6DuXSY++fVLaJcF1983tq0BFuwuES+wfffaT
+        hGnrSjGIKJYaGzONGKtmQzvS9/TyFi1owfMvGQelr81CaPns4i+g1mpnCm8pff1p
+        /ws7X8uZESSfpMSaLY3/fbKAH0AHBDW1g88ERR71HZ5nC69ktDF6zVrmfG6/VkyM
+        oMwaHAamdSYBn22j/o/RPF5cjlQD/nLJ2JT02i7oL4JH9Acr3ctAAwhL/eN0D8JG
+        4wmRS+qV6cdnfUNQ
+        -----END CERTIFICATE-----
+  alternateConfig:
+    connectors:
+      span_metrics: {}
+    exporters:
+      debug: {}
+      otlp_grpc/firepit:
+        endpoint: firepit:4317
+        tls:
+          insecure: true
+      otlp_grpc/jaeger:
+        endpoint: jaeger:4317
+        sending_queue:
+          batch: {}
+        tls:
+          insecure: true
+      otlp_http/prometheus:
+        endpoint: http://prometheus:9090/api/v1/otlp
+        sending_queue:
+          batch: {}
+        tls:
+          insecure: true
+    extensions:
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133
+      opamp:
+        agent_description:
+          include_resource_attributes: true
+          non_identifying_attributes:
+            demo.collector.role: gateway
+            deployment.environment.name: demo
+        capabilities:
+          reports_available_components: true
+          reports_effective_config: true
+          reports_health: true
+        instance_uid: 00000000-0000-7000-8000-000000000001
+        server:
+          ws:
+            endpoint: ws://opamp-server:4320/v1/opamp
+    processors:
+      batch: {}
+      filter/sanitize_profiles:
+        error_mode: ignore
+        profiles:
+          profile:
+          - IsMatch(resource.attributes["service.name"], "containerd-shim-.*")
+      gen_ai_normalizer:
+        sources:
+        - name: openllmetry
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      redaction:
+        allow_all_keys: true
+        blocked_key_patterns:
+        - demo\.payment\.card_pin
+        - password
+        - secret
+        ignored_keys:
+        - demo.payment.card_number
+        summary: info
+      resource:
+        attributes:
+        - action: insert
+          from_attribute: k8s.pod.uid
+          key: service.instance.id
+      resource_detection:
+        detectors:
+        - env
+        - system
+      transform/redact_sensitive_data:
+        error_mode: ignore
+        trace_statements:
+        - context: span
+          statements:
+          - delete_key(attributes, "demo.payment.card_cvv") where attributes["demo.payment.card_cvv"] != nil
+          - set(attributes["user.hash"], SHA256(attributes["user.email"])) where attributes["user.email"] != nil
+          - delete_key(attributes, "user.email") where attributes["user.email"] != nil
+          - replace_pattern(attributes["demo.payment.card_number"], "^\\d{4}-\\d{4}-\\d{4}-", "****-****-****-") where attributes["demo.payment.card_number"]
+            != nil
+      transform/sanitize_logs:
+        error_mode: ignore
+        log_statements:
+        - context: scope
+          statements:
+          - set(attributes["otelcol_signal"], attributes["otelcol.signal"]) where attributes["otelcol.signal"] != nil and
+            not IsMap(attributes["otelcol.signal"])
+          - delete_key(attributes, "otelcol.signal") where attributes["otelcol_signal"] != nil
+      transform/sanitize_spans:
+        error_mode: ignore
+        trace_statements:
+        - context: span
+          statements:
+          - set_semconv_span_name("1.43.0", "original_span_name")
+    receivers:
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: ${env:MY_POD_IP}:14250
+          thrift_compact:
+            endpoint: ${env:MY_POD_IP}:6831
+          thrift_http:
+            endpoint: ${env:MY_POD_IP}:14268
+      kubeletstats:
+        ca_file: /etc/otel/kubelet-ca/ca.crt
+        endpoint: https://${env:K8S_NODE_NAME}:10250
+      otlp:
+        protocols:
+          grpc:
+            endpoint: ${env:MY_POD_IP}:4317
+          http:
+            cors:
+              allowed_headers:
+              - content-type
+              - traceparent
+              - baggage
+              allowed_origins:
+              - http://*
+              - https://*
+            endpoint: ${env:MY_POD_IP}:4318
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: opentelemetry-collector
+            scrape_interval: 10s
+            static_configs:
+            - targets:
+              - ${env:MY_POD_IP}:8888
+      prometheus/ad:
+        config:
+          scrape_configs:
+          - job_name: ad
+            scrape_interval: 10s
+            static_configs:
+            - targets:
+              - ad:9465
+      zipkin:
+        endpoint: ${env:MY_POD_IP}:9411
+    service:
+      extensions:
+      - health_check
+      - opamp
+      pipelines:
+        logs:
+          exporters:
+          - debug
+          processors:
+          - memory_limiter
+          - resource_detection
+          - resource
+          - transform/sanitize_logs
+          receivers:
+          - otlp
+        metrics:
+          exporters:
+          - otlp_http/prometheus
+          - debug
+          processors:
+          - memory_limiter
+          - resource_detection
+          - resource
+          receivers:
+          - otlp
+          - span_metrics
+          - prometheus/ad
+        profiles:
+          exporters:
+          - otlp_grpc/firepit
+          - debug
+          processors:
+          - memory_limiter
+          - resource_detection
+          - resource
+          - filter/sanitize_profiles
+          receivers:
+          - otlp
+        traces:
+          exporters:
+          - otlp_grpc/jaeger
+          - debug
+          - span_metrics
+          processors:
+          - memory_limiter
+          - resource_detection
+          - resource
+          - transform/sanitize_spans
+          - gen_ai_normalizer
+          - transform/redact_sensitive_data
+          - redaction
+          receivers:
+          - otlp
+          - jaeger
+          - zipkin
+      telemetry:
+        logs:
+          processors:
+          - batch:
+              exporter:
+                otlp:
+                  endpoint: http://otel-collector:4318
+                  insecure: true
+                  protocol: http/protobuf
+        metrics:
+          level: detailed
+          readers:
+          - periodic:
+              exporter:
+                otlp:
+                  endpoint: http://otel-collector:4318
+                  insecure: true
+                  protocol: http/protobuf
+              interval: 10000
+              timeout: 5000
+        resource:
+          host.name: ${env:OTEL_K8S_NODE_NAME}
+          k8s.namespace.name: ${env:OTEL_K8S_NAMESPACE}
+          k8s.node.ip: ${env:OTEL_K8S_NODE_IP}
+          k8s.node.name: ${env:OTEL_K8S_NODE_NAME}
+          k8s.pod.ip: ${env:OTEL_K8S_POD_IP}
+          k8s.pod.name: ${env:OTEL_K8S_POD_NAME}
+prometheus:
+  enabled: true
+  server:
+    image:
+      repository: quay.io/prometheus/prometheus
+      tag: v3.13.3
+      pullPolicy: IfNotPresent
+    service:
+      type: NodePort
+      servicePort: 9090
+      nodePort: 30090
+grafana:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: grafana/grafana
+    tag: 13.2.1
+    pullPolicy: IfNotPresent
+  grafana.ini:
+    feature_toggles:
+      enable: jaegerEnableGrpcEndpoint
+  sidecar:
+    datasources:
+      enabled: false
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        uid: webstore-metrics
+        type: prometheus
+        url: http://prometheus:9090
+        editable: true
+        isDefault: true
+        jsonData:
+          timeInterval: 60s
+          exemplarTraceIdDestinations:
+          - datasourceUid: webstore-traces
+            name: trace_id
+          - url: http://localhost:8080/jaeger/ui/trace/$${__value.raw}
+            name: trace_id
+            urlDisplayLabel: View in Jaeger UI
+      - name: Jaeger
+        uid: webstore-traces
+        type: jaeger
+        url: http://jaeger:16686/jaeger/ui
+        editable: true
+        isDefault: false
+        jsonData: {}
+  deploymentStrategy:
+    type: Recreate
+  plugins: []
+jaeger:
+  jaeger:
+    image:
+      registry: quay.io
+      repository: jaegertracing/jaeger
+      tag: 2.21.0
+      pullPolicy: IfNotPresent
+opensearch:
+  image:
+    repository: ghcr.io/open-telemetry/demo
+    tag: latest-opensearch
+    pullPolicy: IfNotPresent
+  majorVersion: '3'
+  enabled: false

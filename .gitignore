@@ -1,0 +1,6 @@
+.helm/
+.env
+.env.*
+kubeconfig
+kubeconfig.*
+*.key

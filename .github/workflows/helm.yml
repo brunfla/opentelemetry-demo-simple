@@ -1,0 +1,93 @@
+name: Helm CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - values.yaml
+      - .github/workflows/helm.yml
+  push:
+    branches: [main]
+    paths:
+      - values.yaml
+      - .github/workflows/helm.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helm-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  HELM_VERSION: v4.3.1
+  CHART_VERSION: 0.42.6
+  CHART_REPOSITORY: https://open-telemetry.github.io/opentelemetry-helm-charts
+  RELEASE: otel-demo
+  NAMESPACE: otel-demo
+
+jobs:
+  validate:
+    name: Validate Helm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@59b1c81c6280f5abebb1fb1bc585696daa7dfb42 # v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Download the pinned chart
+        run: |
+          helm pull opentelemetry-demo \
+            --repo "$CHART_REPOSITORY" \
+            --version "$CHART_VERSION" \
+            --untar --untardir "$RUNNER_TEMP/chart"
+      - name: Validate values and render manifests
+        run: |
+          helm lint "$RUNNER_TEMP/chart/opentelemetry-demo" \
+            --values values.yaml --strict
+          helm template "$RELEASE" "$RUNNER_TEMP/chart/opentelemetry-demo" \
+            --namespace "$NAMESPACE" --values values.yaml > /dev/null
+
+  deploy:
+    name: Deploy to Minikube
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: [self-hosted, linux, x64, otel-demo]
+    environment: local
+    timeout-minutes: 35
+    env:
+      KUBECONFIG: ${{ vars.KUBECONFIG_PATH }}
+      KUBE_CONTEXT: otel-demo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@59b1c81c6280f5abebb1fb1bc585696daa7dfb42 # v5
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Check cluster access
+        run: |
+          test -n "$KUBECONFIG" || { echo "Set the KUBECONFIG_PATH repository variable."; exit 1; }
+          test -r "$KUBECONFIG"
+          kubectl --context "$KUBE_CONTEXT" --request-timeout=15s get nodes
+      - name: Deploy
+        env:
+          HELM_CACHE_HOME: ${{ runner.temp }}/helm/cache
+          HELM_CONFIG_HOME: ${{ runner.temp }}/helm/config
+          HELM_DATA_HOME: ${{ runner.temp }}/helm/data
+        run: |
+          helm upgrade --install "$RELEASE" opentelemetry-demo \
+            --repo "$CHART_REPOSITORY" \
+            --version "$CHART_VERSION" \
+            --namespace "$NAMESPACE" --create-namespace \
+            --kube-context "$KUBE_CONTEXT" \
+            --values values.yaml --reset-values \
+            --wait --timeout 10m --rollback-on-failure --history-max 10
