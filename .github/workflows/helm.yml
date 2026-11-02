@@ -5,11 +5,17 @@ on:
     branches: [main]
     paths:
       - values.yaml
+      - monitoring/**
+      - scripts/check-monitoring.py
+      - scripts/smoke-alerting.py
       - .github/workflows/helm.yml
   push:
     branches: [main]
     paths:
       - values.yaml
+      - monitoring/**
+      - scripts/check-monitoring.py
+      - scripts/smoke-alerting.py
       - .github/workflows/helm.yml
   workflow_dispatch:
 
@@ -51,10 +57,16 @@ jobs:
             --untar --untardir "$RUNNER_TEMP/chart"
       - name: Validate values and render manifests
         run: |
+          mkdir -p .helm
           helm lint "$RUNNER_TEMP/chart/opentelemetry-demo" \
-            --values values.yaml --strict
+            --values values.yaml --values monitoring/values.yaml --strict
           helm template "$RELEASE" "$RUNNER_TEMP/chart/opentelemetry-demo" \
-            --namespace "$NAMESPACE" --values values.yaml > /dev/null
+            --namespace "$NAMESPACE" --values values.yaml \
+            --values monitoring/values.yaml > .helm/rendered.yaml
+      - name: Validate alert routing and test alert behavior
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          python3 scripts/check-monitoring.py .helm/rendered.yaml
 
   deploy:
     name: Deploy to Minikube
@@ -89,5 +101,5 @@ jobs:
             --version "$CHART_VERSION" \
             --namespace "$NAMESPACE" --create-namespace \
             --kube-context "$KUBE_CONTEXT" \
-            --values values.yaml --reset-values \
+            --values values.yaml --values monitoring/values.yaml --reset-values \
             --wait --timeout 10m --rollback-on-failure --history-max 10

@@ -3,7 +3,12 @@
 Les values Helm de la démo OpenTelemetry et un workflow GitHub Actions pour les valider et les déployer sur le Minikube local `otel-demo`.
 
 ```text
-values.yaml                  Configuration à modifier
+values.yaml                  Configuration applicative
+monitoring/values.yaml        Alertmanager, kube-state-metrics et règles d'alerte
+monitoring/tests.yaml         Scénarios de test des alertes
+monitoring/RUNBOOKS.md        Procédures d'intervention et notifications
+scripts/check-monitoring.py  Validation et tests des règles rendues
+scripts/smoke-alerting.py     Test de déclenchement et résolution sur le cluster
 .github/workflows/helm.yml    Validation et déploiement
 .gitignore
 README.md
@@ -11,8 +16,8 @@ README.md
 
 ## Cycle de modification
 
-1. Créer une branche, modifier `values.yaml`, pousser et ouvrir une pull request vers `main`.
-2. GitHub exécute `helm lint --strict` et `helm template` sur un runner hébergé par GitHub.
+1. Créer une branche, modifier les values ou la supervision, pousser et ouvrir une pull request vers `main`.
+2. GitHub exécute `helm lint --strict`, `helm template`, les tests `promtool` et la validation `amtool` sur un runner hébergé par GitHub.
 3. Fusionner la pull request : GitHub déploie sur Minikube avec `helm upgrade --install` depuis le runner local.
 4. Helm attend que les ressources soient prêtes. Si une mise à jour échoue, `--rollback-on-failure` restaure la révision précédente.
 
@@ -37,6 +42,34 @@ Les versions et la cible se trouvent dans le workflow. Le chart est télécharg�
 `values.yaml` reprend les valeurs effectivement installées le 2 novembre 2026. Cette variante désactive notamment Kafka, accounting, fraud-detection, OpenSearch, les services IA et telemetry-docs. Grafana utilise Prometheus et Jaeger. La configuration du collector accompagne cette variante sans Kafka ni OpenSearch.
 
 Les adresses, NodePorts et le certificat **public** du kubelet correspondent au Minikube existant. Les images `latest` et `IfNotPresent` reprennent la configuration locale ; un changement de values ne construit aucune image. Le kubeconfig et les clés privées restent sur la machine du runner.
+
+## Alertes
+
+Le déploiement applique `values.yaml`, puis `monitoring/values.yaml`. Prometheus
+évalue 15 règles couvrant disponibilité, erreurs, latence, état Kubernetes et
+santé de la supervision. kube-state-metrics collecte l'état des ressources ;
+Alertmanager regroupe les alertes. Prometheus (4 Gi), Grafana (1 Gi) et Alertmanager
+(1 Gi) utilisent des volumes persistants de la StorageClass par défaut du cluster.
+Ces volumes survivent aux remplacements des pods ; ils ne constituent pas une
+sauvegarde extérieure à Minikube.
+La rétention Prometheus est limitée à 7 jours ou 3 Go de blocs, selon la première
+limite atteinte, afin de garder de l'espace pour son journal d'écriture.
+
+Dans Grafana, ouvrir **Alerting → Alert rules** et sélectionner **Prometheus**.
+La source **Alertmanager** permet de gérer les silences. Le récepteur initial
+`grafana-only` n'envoie aucune notification externe. L'alerte informative
+`Watchdog` reste toujours active ; la surveillance d'une panne totale nécessite
+un récepteur de heartbeat extérieur au cluster.
+
+Voir [les procédures, seuils et instructions de notification](monitoring/RUNBOOKS.md).
+Pour tester le trajet complet et la résolution sans arrêter un service :
+
+```bash
+python3 scripts/smoke-alerting.py
+```
+
+Ce test prend environ 4 à 7 minutes et crée puis supprime un déploiement temporaire.
+Il est volontairement distinct de la CI de validation, qui n'accède pas au cluster.
 
 ## Runner local
 
@@ -70,10 +103,18 @@ mkdir -p .helm
 helm pull opentelemetry-demo \
   --repo https://open-telemetry.github.io/opentelemetry-helm-charts \
   --version 0.42.6 --untar --untardir .helm
-helm lint .helm/opentelemetry-demo --values values.yaml --strict
+helm lint .helm/opentelemetry-demo \
+  --values values.yaml --values monitoring/values.yaml --strict
 helm template otel-demo .helm/opentelemetry-demo \
-  --namespace otel-demo --values values.yaml > /dev/null
+  --namespace otel-demo --values values.yaml \
+  --values monitoring/values.yaml > .helm/rendered.yaml
+python3 scripts/check-monitoring.py .helm/rendered.yaml
 ```
+
+La validation des alertes nécessite Python 3, PyYAML `6.0.3` et Docker. Elle
+utilise les versions de Prometheus et Alertmanager des manifests rendus.
+Les binaires locaux correspondants peuvent être indiqués via `PROMTOOL` et `AMTOOL`
+pour exécuter les validations sans Docker.
 
 Pour annuler une modification, créer un commit qui rétablit les anciennes values, puis le pousser sur `main`. Le pipeline les redéploiera.
 

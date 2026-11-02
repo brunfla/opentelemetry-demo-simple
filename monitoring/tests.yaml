@@ -1,0 +1,248 @@
+# Scénarios promtool. scripts/check-monitoring.py ajoute les annotations attendues
+# depuis les règles rendues, sans modifier les valeurs, labels ou délais ci-dessous.
+evaluation_interval: 30s
+tests:
+- name: Deployment waits three minutes, fires and recovers
+  interval: 30s
+  input_series:
+  - series: 'kube_deployment_status_replicas_available{namespace="otel-demo",deployment="checkout"}'
+    values: '0+0x7 1+0x8'
+  - series: 'kube_deployment_spec_replicas{namespace="otel-demo",deployment="checkout"}'
+    values: '1+0x16'
+  alert_rule_test:
+  - eval_time: 2m30s
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, deployment: checkout, service_name: checkout, severity: critical}
+  - eval_time: 4m30s
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: []
+- name: A healthy or intentionally scaled-down deployment does not alert
+  interval: 30s
+  input_series:
+  - series: 'kube_deployment_status_replicas_available{namespace="otel-demo",deployment="checkout"}'
+    values: '1+0x30'
+  - series: 'kube_deployment_spec_replicas{namespace="otel-demo",deployment="checkout"}'
+    values: '1+0x30'
+  - series: 'kube_deployment_status_replicas_available{namespace="otel-demo",deployment="disabled"}'
+    values: '0+0x30'
+  - series: 'kube_deployment_spec_replicas{namespace="otel-demo",deployment="disabled"}'
+    values: '0+0x30'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: []
+- name: Sustained server errors trigger after five minutes
+  interval: 30s
+  input_series:
+  - series: 'traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_ERROR"}'
+    values: '0+6x30'
+  - series: 'traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}'
+    values: '0+54x30'
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: ApplicationHighErrorRate
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: ApplicationHighErrorRate
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: checkout, severity: critical}
+- name: Low traffic and client-side errors do not page
+  interval: 30s
+  input_series:
+  - series: 'traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_ERROR"}'
+    values: '0+0.5x30'
+  - series: 'traces_span_metrics_calls_total{service_name="frontend",span_kind="SPAN_KIND_CLIENT",status_code="STATUS_CODE_ERROR"}'
+    values: '0+100x30'
+  - series: 'traces_span_metrics_calls_total{service_name="frontend",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}'
+    values: '0+100x30'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: ApplicationHighErrorRate
+    exp_alerts: []
+- name: p95 latency uses milliseconds and the traffic guard
+  interval: 30s
+  input_series:
+  - series: 'traces_span_metrics_duration_milliseconds_bucket{service_name="frontend",span_kind="SPAN_KIND_SERVER",le="1000"}'
+    values: '0+80x30'
+  - series: 'traces_span_metrics_duration_milliseconds_bucket{service_name="frontend",span_kind="SPAN_KIND_SERVER",le="2000"}'
+    values: '0+100x30'
+  - series: 'traces_span_metrics_duration_milliseconds_bucket{service_name="frontend",span_kind="SPAN_KIND_SERVER",le="+Inf"}'
+    values: '0+100x30'
+  - series: 'traces_span_metrics_calls_total{service_name="frontend",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}'
+    values: '0+100x30'
+  - series: 'traces_span_metrics_duration_milliseconds_bucket{service_name="checkout",span_kind="SPAN_KIND_SERVER",le="1000"}'
+    values: '0+0x30'
+  - series: 'traces_span_metrics_duration_milliseconds_bucket{service_name="checkout",span_kind="SPAN_KIND_SERVER",le="2000"}'
+    values: '0+0.5x30'
+  - series: 'traces_span_metrics_duration_milliseconds_bucket{service_name="checkout",span_kind="SPAN_KIND_SERVER",le="+Inf"}'
+    values: '0+0.5x30'
+  - series: 'traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}'
+    values: '0+0.5x30'
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: ApplicationHighLatency
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: ApplicationHighLatency
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: frontend, severity: warning}
+- name: Healthy HTTP probes do not alert
+  interval: 30s
+  input_series:
+  - series: 'httpcheck_status{service_name="frontend-proxy",http_status_class="2xx",http_status_code="200"}'
+    values: '1+0x30'
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: WebstoreUnavailable
+    exp_alerts: []
+- name: HTTP failure fires and recovers despite changed status-code labels
+  interval: 30s
+  input_series:
+  - series: 'httpcheck_status{service_name="frontend-proxy",http_status_class="2xx",http_status_code="200"}'
+    values: '1 _ _ _ _ _ _ _ _ _ 1+0x8'
+  - series: 'httpcheck_status{service_name="frontend-proxy",http_status_class="2xx"}'
+    values: '_ 0+0x8 stale'
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: WebstoreUnavailable
+    exp_alerts: []
+  - eval_time: 4m30s
+    alertname: WebstoreUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: frontend-proxy, severity: critical}
+  - eval_time: 5m30s
+    alertname: WebstoreUnavailable
+    exp_alerts: []
+- name: Missing HTTP probes are a fault, not healthy
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: WebstoreUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: frontend-proxy, severity: critical}
+- name: A failed probe disappearing must not resolve or change the alert identity
+  interval: 30s
+  input_series:
+  - series: 'httpcheck_status{service_name="frontend-proxy",http_status_class="2xx"}'
+    values: '0+0x5 stale'
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: WebstoreUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: frontend-proxy, severity: critical}
+  - eval_time: 4m
+    alertname: WebstoreUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: frontend-proxy, severity: critical}
+  - eval_time: 6m
+    alertname: WebstoreUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: frontend-proxy, severity: critical}
+- name: Telemetry disappearance is detected per service
+  interval: 30s
+  input_series:
+  - series: 'traces_span_metrics_calls_total{service_name="frontend",span_kind="SPAN_KIND_SERVER"}'
+    values: '0+1x30'
+  - series: 'traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER"}'
+    values: '0+1x4 stale'
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: ApplicationTelemetryMissing
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: ApplicationTelemetryMissing
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: checkout, span_kind: SPAN_KIND_SERVER, severity: warning}
+- name: CrashLoopBackOff persists before alerting
+  interval: 30s
+  input_series:
+  - series: 'kube_pod_container_status_waiting_reason{namespace="otel-demo",pod="cart-abc",container="cart",reason="CrashLoopBackOff"}'
+    values: '1+0x30'
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: KubePodCrashLooping
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: KubePodCrashLooping
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, pod: cart-abc, container: cart, severity: warning}
+- name: Node faults and pressure have separate severities
+  interval: 30s
+  input_series:
+  - series: 'kube_node_status_condition{node="otel-demo",condition="Ready",status="true"}'
+    values: '0+0x30'
+  - series: 'kube_node_status_condition{node="otel-demo",condition="MemoryPressure",status="true"}'
+    values: '1+0x30'
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: KubeNodeNotReady
+    exp_alerts:
+    - exp_labels: {node: otel-demo, condition: Ready, status: 'true', namespace: otel-demo, service_name: kubernetes, severity: critical}
+  - eval_time: 5m
+    alertname: KubeNodePressure
+    exp_alerts:
+    - exp_labels: {node: otel-demo, condition: MemoryPressure, status: 'true', namespace: otel-demo, service_name: kubernetes, severity: warning}
+- name: Collector agent availability is independent of its own telemetry
+  interval: 30s
+  input_series:
+  - series: 'kube_daemonset_status_number_ready{namespace="otel-demo",daemonset="otel-collector-agent"}'
+    values: '0+0x20'
+  - series: 'kube_daemonset_status_desired_number_scheduled{namespace="otel-demo",daemonset="otel-collector-agent"}'
+    values: '1+0x20'
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: KubeCollectorUnavailable
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, daemonset: otel-collector-agent, service_name: otel-collector, severity: critical}
+- name: Collector silence and exporter backlog are detected
+  interval: 30s
+  input_series:
+  - series: 'otelcol_exporter_queue_size{service_name="otelcol-contrib",k8s_namespace_name="otel-demo",exporter="otlp_grpc/jaeger"}'
+    values: '90+0x20'
+  - series: 'otelcol_exporter_queue_capacity{service_name="otelcol-contrib",k8s_namespace_name="otel-demo",exporter="otlp_grpc/jaeger"}'
+    values: '100+0x20'
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: CollectorTelemetryMissing
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, k8s_namespace_name: otel-demo, service_name: otel-collector, severity: critical}
+  - eval_time: 5m
+    alertname: CollectorQueueSaturated
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, exporter: otlp_grpc/jaeger, service_name: otel-collector, severity: warning}
+- name: Both scrape failure and disappearing target are detected
+  interval: 30s
+  input_series:
+  - series: 'up{job="alertmanager",instance="alertmanager:9093"}'
+    values: '0+0x20'
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: MonitoringTargetDown
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, job: alertmanager, instance: 'alertmanager:9093', service_name: monitoring, severity: critical}
+    - exp_labels: {namespace: otel-demo, job: kube-state-metrics, service_name: monitoring, severity: critical}
+- name: Prometheus configuration and rule failures are visible
+  interval: 30s
+  input_series:
+  - series: 'prometheus_rule_evaluation_failures_total{job="prometheus",rule_group="application"}'
+    values: '0+1x20'
+  - series: 'prometheus_config_last_reload_successful{job="prometheus"}'
+    values: '0+0x20'
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: PrometheusRuleEvaluationFailures
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, job: prometheus, rule_group: application, service_name: prometheus, severity: critical}
+  - eval_time: 2m
+    alertname: PrometheusConfigReloadFailed
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, job: prometheus, service_name: prometheus, severity: critical}
+- name: Watchdog is intentionally always firing
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: Watchdog
+    exp_alerts:
+    - exp_labels: {namespace: otel-demo, service_name: monitoring, severity: info}

@@ -1,0 +1,298 @@
+# Overlay Helm de supervision. Toujours appliquer après ../values.yaml.
+# Les seuils sont un point de départ pour cette démo, pas des SLO de production.
+prometheus:
+  configmapReload:
+    prometheus:
+      enabled: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+  server:
+    # Laisser de la place au WAL et aux blocs en cours sur le volume de 4 Gi.
+    retentionSize: 3GB
+    persistentVolume:
+      enabled: true
+      size: 4Gi
+    extraFlags:
+    - enable-feature=exemplar-storage
+    - web.enable-otlp-receiver
+    - web.enable-lifecycle
+    global:
+      evaluation_interval: 30s
+      scrape_interval: 30s
+      scrape_timeout: 10s
+      external_labels:
+        cluster: otel-demo
+        environment: local
+    alertmanagers:
+    - static_configs:
+      - targets:
+        - alertmanager:9093
+  alertmanager:
+    enabled: true
+    fullnameOverride: alertmanager
+    persistence:
+      enabled: true
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    config:
+      global:
+        resolve_timeout: 5m
+      route:
+        receiver: grafana-only
+        group_by: [cluster, namespace, alertname, service_name]
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+        routes:
+        - matchers:
+          - alertname="Watchdog"
+          receiver: watchdog
+      receivers:
+      # Les alertes sont consultables dans Grafana/Alertmanager sans envoi externe.
+      - name: grafana-only
+      # À raccorder à un récepteur externe de heartbeat pour détecter une panne totale.
+      - name: watchdog
+      inhibit_rules:
+      - source_matchers:
+        - severity="critical"
+        target_matchers:
+        - severity="warning"
+        equal: [cluster, namespace, service_name]
+  kube-state-metrics:
+    enabled: true
+    fullnameOverride: kube-state-metrics
+    # Scrape explicite ci-dessous : pas de double collecte par annotations.
+    prometheusScrape: false
+    collectors:
+    - deployments
+    - daemonsets
+    - nodes
+    - pods
+    - statefulsets
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+  extraScrapeConfigs: |
+    - job_name: kube-state-metrics
+      honor_labels: true
+      static_configs:
+      - targets: [kube-state-metrics:8080]
+    - job_name: alertmanager
+      static_configs:
+      - targets: [alertmanager:9093]
+  serverFiles:
+    alerting_rules.yml:
+      groups:
+      - name: otel-demo.application
+        interval: 30s
+        rules:
+        - alert: WebstoreUnavailable
+          expr: >-
+            (max(last_over_time(httpcheck_status{service_name="frontend-proxy",http_status_class="2xx"}[2m])) or vector(0)) < 1
+          for: 2m
+          labels:
+            severity: critical
+            namespace: otel-demo
+            service_name: frontend-proxy
+          annotations:
+            summary: La boutique ne répond plus correctement
+            description: La sonde HTTP ne reçoit plus de réponse 2xx, ou ses données ont disparu. Vérifier frontend-proxy, frontend et le collector.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#webstoreunavailable
+        - alert: ApplicationHighErrorRate
+          expr: >-
+            (
+              sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout",status_code="STATUS_CODE_ERROR"}[5m]))
+              / sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m]))
+            ) > 0.05
+            and on (service_name)
+            sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m])) >= 10
+          for: 5m
+          labels:
+            severity: critical
+            namespace: otel-demo
+          annotations:
+            summary: Taux d'erreurs applicatives élevé
+            description: Plus de 5 % des appels serveur sont en erreur sur 5 minutes, avec au moins 10 appels. Le problème persiste depuis 5 minutes.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#applicationhigherrorrate
+        - alert: ApplicationHighLatency
+          expr: >-
+            histogram_quantile(0.95,
+              sum by (service_name, le) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m]))
+            ) > 1000
+            and on (service_name)
+            sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m])) >= 10
+          for: 5m
+          labels:
+            severity: warning
+            namespace: otel-demo
+          annotations:
+            summary: Latence applicative élevée
+            description: Le percentile 95 dépasse 1 seconde sur une fenêtre de 5 minutes avec au moins 10 appels, pendant 5 minutes.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#applicationhighlatency
+        - alert: ApplicationTelemetryMissing
+          expr: >-
+            absent_over_time(traces_span_metrics_calls_total{service_name="frontend",span_kind="SPAN_KIND_SERVER"}[5m])
+            or absent_over_time(traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER"}[5m])
+          for: 2m
+          labels:
+            severity: warning
+            namespace: otel-demo
+          annotations:
+            summary: Les métriques applicatives ont disparu
+            description: Aucune métrique de spans serveur depuis au moins 5 minutes. Vérifier le service, son instrumentation, le collector et le générateur de trafic.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#applicationtelemetrymissing
+      - name: otel-demo.kubernetes
+        interval: 30s
+        rules:
+        - alert: KubeDeploymentUnavailable
+          expr: >-
+            label_replace(
+              (kube_deployment_status_replicas_available{namespace="otel-demo"} == 0)
+              and on (namespace, deployment)
+              (kube_deployment_spec_replicas{namespace="otel-demo"} > 0),
+              "service_name", "$1", "deployment", "(.+)"
+            )
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: Un déploiement ne possède aucun réplica disponible
+            description: Le nombre désiré de réplicas est positif, mais aucun réplica n'est disponible depuis 3 minutes.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubedeploymentunavailable
+        - alert: KubePodCrashLooping
+          expr: >-
+            max by (namespace, pod, container) (
+              max_over_time(kube_pod_container_status_waiting_reason{namespace="otel-demo",reason="CrashLoopBackOff"}[5m])
+            ) >= 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un conteneur redémarre en boucle
+            description: Un état CrashLoopBackOff est observé de manière persistante. Lire les logs précédents et les événements du pod.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubepodcrashlooping
+        - alert: KubeNodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 3m
+          labels:
+            severity: critical
+            namespace: otel-demo
+            service_name: kubernetes
+          annotations:
+            summary: Un nœud Kubernetes n'est plus prêt
+            description: Le nœud est NotReady depuis 3 minutes. Un contrôle externe reste nécessaire si toute la supervision s'arrête avec le nœud.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubenodenotready
+        - alert: KubeNodePressure
+          expr: kube_node_status_condition{condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: kubernetes
+          annotations:
+            summary: Un nœud manque de ressources
+            description: Kubernetes signale une pression mémoire, disque ou PID depuis 5 minutes. Examiner la condition indiquée et les événements du nœud.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubenodepressure
+        - alert: KubeCollectorUnavailable
+          expr: >-
+            kube_daemonset_status_number_ready{namespace="otel-demo",daemonset="otel-collector-agent"}
+            < kube_daemonset_status_desired_number_scheduled{namespace="otel-demo",daemonset="otel-collector-agent"}
+          for: 3m
+          labels:
+            severity: critical
+            service_name: otel-collector
+          annotations:
+            summary: Un agent OpenTelemetry n'est pas prêt
+            description: Le DaemonSet du collector possède moins d'agents prêts que prévu depuis 3 minutes.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecollectorunavailable
+      - name: otel-demo.monitoring
+        interval: 30s
+        rules:
+        - alert: CollectorTelemetryMissing
+          expr: absent_over_time(otelcol_process_uptime_seconds_total{service_name="otelcol-contrib",k8s_namespace_name="otel-demo"}[2m])
+          for: 2m
+          labels:
+            severity: critical
+            namespace: otel-demo
+            service_name: otel-collector
+          annotations:
+            summary: Le collector ne transmet plus ses métriques
+            description: Les métriques internes du collector ont disparu. Les alertes applicatives peuvent manquer de données.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#collectortelemetrymissing
+        - alert: CollectorQueueSaturated
+          expr: >-
+            max by (exporter) (
+              otelcol_exporter_queue_size{service_name="otelcol-contrib",k8s_namespace_name="otel-demo"}
+              / otelcol_exporter_queue_capacity{service_name="otelcol-contrib",k8s_namespace_name="otel-demo"}
+            ) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: otel-collector
+          annotations:
+            summary: Une file d'export OpenTelemetry est presque pleine
+            description: Une file d'export dépasse 80 % de sa capacité depuis 5 minutes. Vérifier le backend et les erreurs d'export.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#collectorqueuesaturated
+        - alert: MonitoringTargetDown
+          expr: >-
+            up{job=~"kube-state-metrics|alertmanager"} == 0
+            or absent_over_time(up{job="kube-state-metrics"}[2m])
+            or absent_over_time(up{job="alertmanager"}[2m])
+          for: 2m
+          labels:
+            severity: critical
+            namespace: otel-demo
+            service_name: monitoring
+          annotations:
+            summary: Une cible essentielle de supervision est inaccessible
+            description: Prometheus ne peut plus collecter kube-state-metrics ou Alertmanager. Vérifier le job indiqué, ses pods et son service.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#monitoringtargetdown
+        - alert: PrometheusRuleEvaluationFailures
+          expr: increase(prometheus_rule_evaluation_failures_total{job="prometheus"}[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            namespace: otel-demo
+            service_name: prometheus
+          annotations:
+            summary: Prometheus échoue à évaluer des règles
+            description: Des évaluations de règles échouent. Vérifier la page Rules, les erreurs de requête et les ressources de Prometheus.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#prometheusruleevaluationfailures
+        - alert: PrometheusConfigReloadFailed
+          expr: prometheus_config_last_reload_successful{job="prometheus"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            namespace: otel-demo
+            service_name: prometheus
+          annotations:
+            summary: La nouvelle configuration Prometheus n'a pas été chargée
+            description: Prometheus conserve son ancienne configuration. Vérifier le reloader, les logs et la validation des règles avant de redéployer.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#prometheusconfigreloadfailed
+        - alert: Watchdog
+          expr: vector(1)
+          labels:
+            severity: info
+            namespace: otel-demo
+            service_name: monitoring
+          annotations:
+            summary: Signal permanent de fonctionnement des alertes
+            description: Cette alerte doit rester active. Sans récepteur externe de heartbeat, elle ne détecte pas une panne totale du cluster.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#watchdog
+grafana:
+  persistence:
+    enabled: true
+    size: 1Gi

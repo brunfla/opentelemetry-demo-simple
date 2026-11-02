@@ -419,6 +419,9 @@ grafana:
         isDefault: true
         jsonData:
           timeInterval: 60s
+          manageAlerts: true
+          prometheusType: Prometheus
+          prometheusVersion: 3.13.3
           exemplarTraceIdDestinations:
           - datasourceUid: webstore-traces
             name: trace_id
@@ -432,6 +435,16 @@ grafana:
         editable: true
         isDefault: false
         jsonData: {}
+      - name: Alertmanager
+        uid: webstore-alertmanager
+        type: alertmanager
+        access: proxy
+        url: http://alertmanager:9093
+        editable: false
+        isDefault: false
+        jsonData:
+          implementation: prometheus
+          handleGrafanaManagedAlerts: false
   deploymentStrategy:
     type: Recreate
   plugins: []
