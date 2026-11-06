@@ -1,0 +1,145 @@
+tests:
+- name: 'Test profile: Healthy HTTP probes do not alert'
+  interval: 30s
+  input_series:
+  - series: httpcheck_status{service_name="quote",http_status_class="2xx",http_status_code="200"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: TestServiceUnavailable
+    exp_alerts: []
+- name: 'Test profile: HTTP failure fires and recovers despite changed status-code
+    labels'
+  interval: 30s
+  input_series:
+  - series: httpcheck_status{service_name="quote",http_status_class="2xx",http_status_code="200"}
+    values: 1 _ _ _ _ _ _ _ _ _ 1+0x8
+  - series: httpcheck_status{service_name="quote",http_status_class="2xx"}
+    values: _ 0+0x8 stale
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: TestServiceUnavailable
+    exp_alerts: []
+  - eval_time: 4m30s
+    alertname: TestServiceUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        severity: critical
+  - eval_time: 5m30s
+    alertname: TestServiceUnavailable
+    exp_alerts: []
+- name: 'Test profile: Missing HTTP probes are a fault, not healthy'
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: TestServiceUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        severity: critical
+- name: 'Test profile: A failed probe disappearing must not resolve or change the
+    alert identity'
+  interval: 30s
+  input_series:
+  - series: httpcheck_status{service_name="quote",http_status_class="2xx"}
+    values: 0+0x5 stale
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: TestServiceUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        severity: critical
+  - eval_time: 4m
+    alertname: TestServiceUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        severity: critical
+  - eval_time: 6m
+    alertname: TestServiceUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        severity: critical
+- name: 'Test profile: Traffic collapses against established baseline and recovers'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="quote",span_kind="SPAN_KIND_SERVER"}
+    values: 0+60x80 4800+0x39 4860+60x60
+  alert_rule_test:
+  - eval_time: 49m
+    alertname: ApplicationTrafficDrop
+    exp_alerts: []
+  - eval_time: 55m
+    alertname: ApplicationTrafficDrop
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: quote
+  - eval_time: 65m
+    alertname: ApplicationTrafficDrop
+    exp_alerts: []
+- name: 'Test profile: Low historical traffic and missing counters do not look like
+    traffic collapse'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="quote",span_kind="SPAN_KIND_SERVER"}
+    values: 0+1x80 80+0x80
+  alert_rule_test:
+  - eval_time: 55m
+    alertname: ApplicationTrafficDrop
+    exp_alerts: []
+- name: 'Test profile: Sustained server errors trigger after five minutes'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="quote",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_ERROR"}
+    values: 0+6x30
+  - series: traces_span_metrics_calls_total{service_name="quote",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}
+    values: 0+54x30
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: ApplicationHighErrorRate
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: ApplicationHighErrorRate
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        severity: critical
+- name: 'Test profile: disabled services do not cause missing telemetry alerts'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="quote",span_kind="SPAN_KIND_SERVER"}
+    values: 0+6x40
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: ApplicationTelemetryMissing
+    exp_alerts: []
+- name: 'Test profile: quote telemetry loss fires and recovers'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="quote",span_kind="SPAN_KIND_SERVER"}
+    values: 0+6x4 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 200+6x20
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: ApplicationTelemetryMissing
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: ApplicationTelemetryMissing
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: quote
+        span_kind: SPAN_KIND_SERVER
+        severity: warning
+  - eval_time: 15m
+    alertname: ApplicationTelemetryMissing
+    exp_alerts: []
