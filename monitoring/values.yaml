@@ -34,6 +34,12 @@ prometheus:
   alertmanager:
     enabled: true
     fullnameOverride: alertmanager
+    # Secret déjà présent sur le cluster ; sa valeur reste hors de Git.
+    extraSecretMounts:
+    - name: incident-n8n-webhook
+      secretName: incident-n8n-webhook
+      mountPath: /etc/alertmanager/n8n
+      readOnly: true
     persistence:
       enabled: true
       size: 1Gi
@@ -56,11 +62,29 @@ prometheus:
         - matchers:
           - alertname="Watchdog"
           receiver: watchdog
+        - receiver: n8n-incidents
+          matchers:
+          - namespace="otel-demo"
+          - alertname!="Watchdog"
+          group_wait: 10s
+          group_interval: 30s
+          repeat_interval: 4h
       receivers:
-      # Les alertes sont consultables dans Grafana/Alertmanager sans envoi externe.
+      # Grafana expose toutes les alertes ; n8n reçoit celles du namespace otel-demo.
       - name: grafana-only
       # À raccorder à un récepteur externe de heartbeat pour détecter une panne totale.
       - name: watchdog
+      - name: n8n-incidents
+        webhook_configs:
+        - url: http://host.docker.internal:5678/webhook/otel-alerts
+          send_resolved: true
+          max_alerts: 100
+          http_config:
+            follow_redirects: false
+            http_headers:
+              X-API-Key:
+                files:
+                - /etc/alertmanager/n8n/webhook-token
       inhibit_rules:
       # Une indisponibilité totale masque seulement le manque partiel de réplicas
       # du même déploiement. Aucun masquage global de tous les warnings.

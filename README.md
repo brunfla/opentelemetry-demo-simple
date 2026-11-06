@@ -60,10 +60,13 @@ La rétention Prometheus est limitée à 7 jours ou 3 Go de blocs, selon la prem
 limite atteinte, afin de garder de l'espace pour son journal d'écriture.
 
 Dans Grafana, ouvrir **Alerting → Alert rules** et sélectionner **Prometheus**.
-La source **Alertmanager** permet de gérer les silences. Le récepteur initial
-`grafana-only` n'envoie aucune notification externe. L'alerte informative
-`Watchdog` reste toujours active ; la surveillance d'une panne totale nécessite
-un récepteur de heartbeat extérieur au cluster.
+La source **Alertmanager** permet de gérer les silences. Le récepteur
+`n8n-incidents` transmet les alertes du namespace `otel-demo` (hors `Watchdog`)
+au webhook n8n local, y compris leur résolution. Le Secret Kubernetes existant
+`incident-n8n-webhook`, clé `webhook-token`, fournit l’authentification et reste
+hors de Git. Les autres namespaces restent consultables dans Grafana sans
+notification n8n. `Watchdog` reste toujours active ; la surveillance d'une panne
+totale nécessite un récepteur de heartbeat extérieur au cluster.
 
 Voir [les procédures, seuils et instructions de notification](monitoring/RUNBOOKS.md).
 Pour tester le trajet complet et la résolution sans arrêter un service :
@@ -73,7 +76,8 @@ python3 scripts/smoke-alerting.py
 ```
 
 Ce test prend environ 4 à 7 minutes et crée puis supprime un déploiement temporaire.
-Il est volontairement distinct de la CI de validation, qui n'accède pas au cluster.
+Il envoie une notification réelle à n8n et peut déclencher le traitement d’un
+incident. Il est distinct de la CI de validation, qui n'accède pas au cluster.
 
 ## Runner local
 
