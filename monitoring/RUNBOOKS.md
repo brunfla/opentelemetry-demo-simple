@@ -5,10 +5,19 @@ et Grafana les affiche dans **Alerting → Alert rules**, source **Prometheus**.
 La source **Alertmanager** permet de consulter les groupes et de créer des silences.
 Les règles restent gérées dans Git, pas dans l'interface Grafana.
 
-Le récepteur `grafana-only` ne contient volontairement aucun canal externe :
-aucun email ou webhook n'est envoyé. `Watchdog` est une alerte informative
-permanente, pas un incident. Une panne complète du nœud nécessite un contrôle
-extérieur au cluster et un récepteur externe pour son heartbeat.
+Le récepteur `n8n-incidents` envoie les alertes du namespace `otel-demo`, hors
+`Watchdog`, au webhook local `http://host.docker.internal:5678/webhook/otel-alerts`.
+Les résolutions sont également envoyées. L’en-tête `X-API-Key` est lu depuis
+`/etc/alertmanager/n8n/webhook-token`, monté en lecture seule à partir du Secret
+existant `incident-n8n-webhook`. Sa valeur reste hors de Git et n’est pas créée
+par le chart. Le déploiement nécessite ce Secret avec la clé `webhook-token`.
+Les alertes d’autres namespaces, notamment `kube-system`, restent dans Grafana
+via le récepteur `grafana-only`, sans envoi à n8n. Ce périmètre préserve le routage
+qui existait sur le cluster avant son intégration dans Git.
+
+`Watchdog` est une alerte informative permanente, pas un incident. Son récepteur
+est distinct de n8n. Une panne complète du nœud nécessite un contrôle extérieur
+au cluster et un récepteur externe pour son heartbeat.
 
 Les seuils initiaux (5 % d'erreurs, p95 > 1 s, au moins 10 appels sur 5 minutes)
 sont adaptés à une démo à faible trafic. Ils doivent être réévalués à partir du
@@ -188,8 +197,9 @@ ConfigMaps sans nécessiter un redémarrage du serveur.
 
 Cette alerte `info` doit toujours être active. Elle vérifie le trajet
 Prometheus → Alertmanager et fournit un signal à raccorder à un récepteur de
-heartbeat **hors de ce cluster**. En mode `grafana-only`, aucun service externe
-ne vérifie son absence : la couverture d'une panne totale reste à configurer.
+heartbeat **hors de ce cluster**. Le récepteur `watchdog` n’est pas raccordé à
+un service externe ; n8n ne reçoit pas cette alerte. La couverture d’une panne
+totale reste donc à configurer.
 
 ## Tests
 
@@ -208,8 +218,9 @@ python3 scripts/smoke-alerting.py
 Le script crée un déploiement temporaire impossible à placer. Il attend
 `KubeDeploymentUnavailable` dans Prometheus, Alertmanager et via la source de
 données Grafana, supprime ce déploiement, puis vérifie la résolution. Il ne
-modifie aucun service applicatif. Compter environ 4 à 7 minutes. Si un canal
-externe est ajouté plus tard, ce test peut y envoyer une vraie notification.
+modifie aucun service applicatif. Compter environ 4 à 7 minutes. Avec le routage
+actuel, ce test envoie une vraie notification à n8n et peut créer un incident.
+Les tests de routage d’`amtool` exécutés en CI sont locaux et n’envoient rien.
 
 ## Ajouter un canal de notification
 
@@ -324,3 +335,30 @@ L’inventaire des nœuds vient de kube-state-metrics. Pour chaque nœud connu, 
 Des échecs d’export sont observés sur 5 minutes et la condition persiste 2 minutes. Vérifier le backend et les erreurs permanentes ou réessayées.
 
 Examiner l’exporter indiqué et les logs du collector. Les échecs de spans, métriques et logs sont additionnés. Ils peuvent être réessayés : l’alerte ne prouve pas à elle seule une perte définitive. Corréler avec `CollectorQueueSaturated`, les erreurs réseau et la disponibilité du backend.
+
+## Conflit de propriété Helm et modifications manuelles
+
+Helm 4 utilise l’application côté serveur. Une modification avec `kubectl patch`
+peut devenir propriétaire d’un champ et bloquer ensuite l’upgrade, ainsi que son
+rollback. Le 6 novembre 2026, le champ `data.alertmanager.yml` appartenait à
+`kubectl-patch` après l’ajout du webhook n8n hors de Git. Le montage de son Secret
+avait lui aussi été ajouté au StatefulSet par un patch.
+
+Avant toute reprise de propriété, sauvegarder le ConfigMap et inspecter
+`metadata.managedFields` ainsi que la configuration effective. Réintégrer les
+modifications utiles dans les values, en particulier routes et montages de
+Secrets. Le token n’a pas sa place dans ces sauvegardes ni dans Git.
+
+La réparation ponctuelle du ConfigMap a conservé exactement la configuration
+YAML interprétée : seule sa sérialisation a changé pour permettre à Helm de
+reprendre le champ via une application ciblée avec `--field-manager=helm` et
+`--force-conflicts`. Vérifier ensuite le propriétaire et l’égalité de la
+configuration interprétée. Le workflow normal n’active pas le forçage des
+conflits sur l’ensemble de la release. Un échec du rollback peut laisser des
+ressources partiellement mises à jour : après la fusion de la correction,
+vérifier le statut Helm, les pods, les 31 règles et la configuration chargée.
+
+Les futures modifications d’Alertmanager doivent passer par les values et une
+PR pour éviter de recréer cette divergence. Références :
+[conflits d’application Kubernetes](https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts),
+[options d’upgrade Helm](https://docs.helm.sh/docs/helm/helm_upgrade/).
