@@ -362,3 +362,18 @@ Les futures modifications d’Alertmanager doivent passer par les values et une
 PR pour éviter de recréer cette divergence. Références :
 [conflits d’application Kubernetes](https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts),
 [options d’upgrade Helm](https://docs.helm.sh/docs/helm/helm_upgrade/).
+
+## TestServiceUnavailable
+
+En profil `test`, cette règle remplace `WebstoreUnavailable`. Le collector envoie
+un POST JSON sur `http://quote:8080/getquote` toutes les 30 secondes. Une absence
+de réponse 2xx ou de métriques pendant la fenêtre attendue déclenche l’alerte.
+Vérifier le pod `quote`, le service Kubernetes et le collector.
+
+Dans ce profil, `ApplicationTelemetryMissing` et `ApplicationTrafficDrop`
+surveillent uniquement `quote`. Les règles d’erreur et de latence s’appliquent
+à ses spans serveur. La petite sonde reste active même lorsque le générateur
+est arrêté ; une forte baisse de trafic est donc possible sans perte totale
+de télémétrie. Les traces sont converties en métriques puis abandonnées : Jaeger
+est désactivé. Consulter Prometheus et Alertmanager directement, ou n8n pour les
+notifications du namespace `otel-demo`. Grafana a zéro réplica, son PVC est conservé.

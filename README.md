@@ -14,6 +14,50 @@ scripts/smoke-alerting.py     Test de déclenchement et résolution sur le clust
 README.md
 ```
 
+## Profil de test léger
+
+Le fichier `deployment-profile` sélectionne le profil déployé après fusion sur
+`main`. Il contient actuellement `test`. Pour retrouver la démo complète,
+remplacer son contenu par `full` dans une PR. La CI valide les deux profils à
+chaque changement ; le runner déploie uniquement celui choisi dans Git.
+
+En mode `test`, seuls `quote` et une boucle BusyBox envoyant un POST toutes les
+5 secondes restent côté application. Le collector conserve la conversion des
+traces en métriques et les métriques kubelet. Prometheus, Alertmanager et
+kube-state-metrics restent actifs. Grafana est réduit à zéro réplica, son PVC
+est conservé ; Jaeger et les autres composants de la boutique sont désactivés.
+Les traces détaillées ne sont plus stockées, mais les alertes de latence et
+d’erreurs continuent à fonctionner à partir des métriques de spans.
+
+Les limites mémoire des conteneurs actifs totalisent **992 Mio** sur un nœud,
+auxquels s’ajoutent Kubernetes, containerd et Docker. L’objectif de consommation
+totale est **environ 1 à 2 Gio**, à mesurer après déploiement ; 1 Gio pour tout
+Minikube est trop serré. Les limites ne sont pas une mesure de consommation et
+ne plafonnent pas la mémoire du nœud. n8n, ses agents et les autres conteneurs
+Docker de la machine ne sont pas inclus dans ce budget. La rétention Prometheus
+passe à 6 heures / 512 Mo : les métriques plus anciennes seront purgées. Les PVC
+Prometheus, Alertmanager et Grafana gardent leur taille et ne sont pas recréés.
+
+Les 31 règles restent présentes. La disponibilité HTTP, l’absence de métriques
+applicatives et la chute de trafic ciblent `quote` ; les services volontairement
+arrêtés ne déclenchent pas d’alertes de télémétrie manquante. Le routage n8n existant
+est conservé. Consulter [Prometheus](http://localhost:9090/alerts), ou ouvrir
+Alertmanager avec :
+
+```bash
+kubectl --context otel-demo -n otel-demo port-forward service/alertmanager 9093:9093
+```
+
+Puis ouvrir `http://localhost:9093`. La boutique et Grafana sont indisponibles
+dans ce mode. Pour un test de déclenchement/résolution après déploiement :
+
+```bash
+python3 scripts/smoke-alerting.py --skip-grafana
+```
+
+Ce test envoie de vraies notifications à n8n. Pour tester sans notification,
+utiliser les scénarios promtool de la CI.
+
 ## Cycle de modification
 
 1. Créer une branche, modifier les values ou la supervision, pousser et ouvrir une pull request vers `main`.
@@ -81,7 +125,7 @@ incident. Il est distinct de la CI de validation, qui n'accède pas au cluster.
 
 ## Runner local
 
-Le runner doit tourner sur la machine qui accède au contexte Kubernetes `otel-demo`, avec `kubectl` disponible. GitHub installe la version de Helm déclarée dans le workflow.
+Le runner doit tourner sur la machine qui accède au contexte Kubernetes `otel-demo`, avec `kubectl`, Python 3 et PyYAML `6.0.3` disponibles. GitHub installe la version de Helm déclarée dans le workflow.
 
 Pour enregistrer un runner : **Settings → Actions → Runners → New self-hosted runner**, puis suivre les commandes GitHub et ajouter le label `otel-demo`. Le dépôt est privé.
 
@@ -111,12 +155,13 @@ mkdir -p .helm
 helm pull opentelemetry-demo \
   --repo https://open-telemetry.github.io/opentelemetry-helm-charts \
   --version 0.42.6 --untar --untardir .helm
-helm lint .helm/opentelemetry-demo \
-  --values values.yaml --values monitoring/values.yaml --strict
+python3 scripts/prepare-profile.py --output .helm/profile-values.yaml
+helm lint .helm/opentelemetry-demo --values .helm/profile-values.yaml --strict
 helm template otel-demo .helm/opentelemetry-demo \
-  --namespace otel-demo --values values.yaml \
-  --values monitoring/values.yaml > .helm/rendered.yaml
-python3 scripts/check-monitoring.py .helm/rendered.yaml
+  --namespace otel-demo --values .helm/profile-values.yaml > .helm/rendered.yaml
+python3 scripts/check-monitoring.py .helm/rendered.yaml --profile "$(cat deployment-profile)"
+# En mode test :
+python3 scripts/check-test-profile.py .helm/rendered.yaml
 ```
 
 La validation des alertes nécessite Python 3, PyYAML `6.0.3` et Docker. Elle
