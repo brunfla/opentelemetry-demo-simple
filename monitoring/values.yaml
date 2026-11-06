@@ -62,11 +62,13 @@ prometheus:
       # À raccorder à un récepteur externe de heartbeat pour détecter une panne totale.
       - name: watchdog
       inhibit_rules:
+      # Une indisponibilité totale masque seulement le manque partiel de réplicas
+      # du même déploiement. Aucun masquage global de tous les warnings.
       - source_matchers:
-        - severity="critical"
+        - alertname="KubeDeploymentUnavailable"
         target_matchers:
-        - severity="warning"
-        equal: [cluster, namespace, service_name]
+        - alertname="KubeDeploymentReplicasMismatch"
+        equal: [cluster, namespace, deployment]
   kube-state-metrics:
     enabled: true
     fullnameOverride: kube-state-metrics
@@ -77,6 +79,7 @@ prometheus:
     - daemonsets
     - nodes
     - pods
+    - persistentvolumeclaims
     - statefulsets
     resources:
       requests:
@@ -113,11 +116,11 @@ prometheus:
         - alert: ApplicationHighErrorRate
           expr: >-
             (
-              sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout",status_code="STATUS_CODE_ERROR"}[5m]))
-              / sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m]))
+              sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|frontend-proxy|checkout|cart|payment|product-catalog|currency|shipping|quote|email|ad|image-provider",status_code="STATUS_CODE_ERROR"}[5m]))
+              / sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|frontend-proxy|checkout|cart|payment|product-catalog|currency|shipping|quote|email|ad|image-provider"}[5m]))
             ) > 0.05
             and on (service_name)
-            sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m])) >= 10
+            sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|frontend-proxy|checkout|cart|payment|product-catalog|currency|shipping|quote|email|ad|image-provider"}[5m])) >= 10
           for: 5m
           labels:
             severity: critical
@@ -129,10 +132,10 @@ prometheus:
         - alert: ApplicationHighLatency
           expr: >-
             histogram_quantile(0.95,
-              sum by (service_name, le) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m]))
+              sum by (service_name, le) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|frontend-proxy|checkout|cart|payment|product-catalog|currency|shipping|quote|email|ad|image-provider"}[5m]))
             ) > 1000
             and on (service_name)
-            sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m])) >= 10
+            sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|frontend-proxy|checkout|cart|payment|product-catalog|currency|shipping|quote|email|ad|image-provider"}[5m])) >= 10
           for: 5m
           labels:
             severity: warning
@@ -153,15 +156,31 @@ prometheus:
             summary: Les métriques applicatives ont disparu
             description: Aucune métrique de spans serveur depuis au moins 5 minutes. Vérifier le service, son instrumentation, le collector et le générateur de trafic.
             runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#applicationtelemetrymissing
+        - alert: ApplicationTrafficDrop
+          expr: >-
+            sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[5m]))
+            < 0.2 * sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[30m]
+            offset 10m)) and on (service_name) sum by (service_name) (increase(traces_span_metrics_calls_total{span_kind="SPAN_KIND_SERVER",service_name=~"frontend|checkout"}[30m]
+            offset 10m)) >= 100
+          for: 10m
+          labels:
+            severity: warning
+            namespace: otel-demo
+          annotations:
+            summary: Chute inhabituelle du trafic applicatif
+            description: >-
+              Le débit est inférieur à 20 % de la référence de 30 minutes décalée de 10 minutes, depuis 10 minutes.
+              La référence contient au moins 100 appels. Vérifier le générateur de trafic et le parcours utilisateur.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#applicationtrafficdrop
       - name: otel-demo.kubernetes
         interval: 30s
         rules:
         - alert: KubeDeploymentUnavailable
           expr: >-
             label_replace(
-              (kube_deployment_status_replicas_available{namespace="otel-demo"} == 0)
+              (kube_deployment_status_replicas_available{namespace!=""} == 0)
               and on (namespace, deployment)
-              (kube_deployment_spec_replicas{namespace="otel-demo"} > 0),
+              (kube_deployment_spec_replicas{namespace!=""} > 0),
               "service_name", "$1", "deployment", "(.+)"
             )
           for: 3m
@@ -174,7 +193,7 @@ prometheus:
         - alert: KubePodCrashLooping
           expr: >-
             max by (namespace, pod, container) (
-              max_over_time(kube_pod_container_status_waiting_reason{namespace="otel-demo",reason="CrashLoopBackOff"}[5m])
+              max_over_time(kube_pod_container_status_waiting_reason{namespace!="",reason="CrashLoopBackOff"}[5m])
             ) >= 1
           for: 5m
           labels:
@@ -217,6 +236,188 @@ prometheus:
             summary: Un agent OpenTelemetry n'est pas prêt
             description: Le DaemonSet du collector possède moins d'agents prêts que prévu depuis 3 minutes.
             runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecollectorunavailable
+        - alert: KubeDeploymentReplicasMismatch
+          expr: >-
+            max by (namespace, deployment) (kube_deployment_status_replicas_available{namespace!=""}) < max by
+            (namespace, deployment) (kube_deployment_spec_replicas{namespace!=""})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un déploiement manque de réplicas disponibles
+            description: >-
+              Le nombre de réplicas disponibles reste inférieur au nombre désiré pendant 10 minutes. Vérifier
+              le rollout et les readiness probes.
+            runbook_url: >-
+              https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubedeploymentreplicasmismatch
+        - alert: KubeStatefulSetReplicasMismatch
+          expr: >-
+            max by (namespace, statefulset) (kube_statefulset_status_replicas_ready{namespace!=""}) < max by (namespace,
+            statefulset) (kube_statefulset_replicas{namespace!=""})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un StatefulSet manque de réplicas prêts
+            description: >-
+              Des réplicas restent indisponibles depuis 5 minutes. Vérifier les pods et les volumes, notamment
+              ceux d’Alertmanager.
+            runbook_url: >-
+              https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubestatefulsetreplicasmismatch
+        - alert: KubeDaemonSetUnavailable
+          expr: >-
+            max by (namespace, daemonset) (kube_daemonset_status_number_ready{namespace!="",daemonset!="otel-collector-agent"})
+            < max by (namespace, daemonset) (kube_daemonset_status_desired_number_scheduled{namespace!="",daemonset!="otel-collector-agent"})
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un DaemonSet manque de pods prêts
+            description: >-
+              Le nombre de pods prêts reste inférieur au nombre attendu depuis 5 minutes. Examiner les composants
+              système et le placement.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubedaemonsetunavailable
+        - alert: KubePodNotReady
+          expr: >-
+            (max by (namespace, pod) (kube_pod_status_ready{namespace!="",condition="true"}) == 0) and on (namespace,
+            pod) (max by (namespace, pod) (kube_pod_status_phase{namespace!="",phase=~"Pending|Running|Unknown"})
+            == 1) unless on (namespace, pod) kube_pod_deletion_timestamp
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un pod reste non prêt
+            description: >-
+              Un pod Pending, Running ou Unknown reste non prêt pendant 10 minutes. Les pods terminés et en cours
+              de suppression sont exclus.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubepodnotready
+        - alert: KubeContainerWaiting
+          expr: >-
+            max by (namespace, pod, container, reason) ( kube_pod_container_status_waiting_reason{namespace!="",reason=~"ImagePullBackOff|ErrImagePull|CreateContainerConfigError|CreateContainerError|InvalidImageName"}
+            or kube_pod_init_container_status_waiting_reason{namespace!="",reason=~"ImagePullBackOff|ErrImagePull|CreateContainerConfigError|CreateContainerError|InvalidImageName"})
+            == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un conteneur ne peut pas démarrer
+            description: >-
+              Une erreur d’image ou de configuration bloque un conteneur ou init-container depuis 5 minutes. Vérifier
+              image, registre, Secrets et ConfigMaps.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecontainerwaiting
+        - alert: KubeContainerRestarts
+          expr: >-
+            max by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total{namespace!=""}[15m]))
+            >= 3
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Redémarrages répétés d’un conteneur
+            description: Au moins 3 redémarrages estimés sur 15 minutes, pendant 2 minutes. Examiner les logs
+              précédents et les probes.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecontainerrestarts
+        - alert: KubeContainerOOMKilled
+          expr: >-
+            (max by (namespace, pod, container) (kube_pod_container_status_last_terminated_reason{namespace!="",reason="OOMKilled"})
+            == 1) and on (namespace, pod, container) (time() - max by (namespace, pod, container) (kube_pod_container_status_last_terminated_timestamp{namespace!=""})
+            < 600)
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un conteneur a été tué par manque de mémoire
+            description: >-
+              La dernière terminaison est OOMKilled et date de moins de 10 minutes. Vérifier consommation, limite
+              mémoire et pression du nœud.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecontaineroomkilled
+        - alert: KubeContainerMemoryNearLimit
+          expr: >-
+            max by (namespace, pod, container) (container_memory_working_set_bytes{job="kubernetes-nodes-cadvisor",namespace!="",container!="",container!="POD"})
+            / on (namespace, pod, container) (max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory",unit="byte"})
+            > 0) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un conteneur approche sa limite mémoire
+            description: >-
+              Le working set dépasse 90 % de la limite mémoire depuis 10 minutes. Les conteneurs sans limite positive
+              sont exclus.
+            runbook_url: >-
+              https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecontainermemorynearlimit
+        - alert: KubeContainerCPUThrottling
+          expr: >-
+            sum by (namespace, pod, container) (rate(container_cpu_cfs_throttled_periods_total{job="kubernetes-nodes-cadvisor",namespace!="",container!="",container!="POD"}[5m]))
+            / sum by (namespace, pod, container) (rate(container_cpu_cfs_periods_total{job="kubernetes-nodes-cadvisor",namespace!="",container!="",container!="POD"}[5m]))
+            > 0.25
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un conteneur subit une limitation CPU prolongée
+            description: >-
+              Plus de 25 % des périodes CPU sont limitées sur 5 minutes, pendant 10 minutes. Corréler avec latence
+              et limites CPU avant de les modifier.
+            runbook_url: >-
+              https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubecontainercputhrottling
+        - alert: KubeNodeCPUHigh
+          expr: >-
+            max by (k8s_node_name) (k8s_node_cpu_usage) / on (k8s_node_name) max by (k8s_node_name) (label_replace(kube_node_status_capacity{resource="cpu",unit="core"},
+            "k8s_node_name", "$1", "node", "(.+)")) > 0.9
+          for: 15m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: kubernetes
+          annotations:
+            summary: Le CPU du nœud est saturé
+            description: >-
+              La consommation CPU dépasse 90 % de la capacité du nœud depuis 15 minutes. Vérifier les principaux
+              consommateurs.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubenodecpuhigh
+        - alert: KubeNodeMemoryHigh
+          expr: >-
+            max by (k8s_node_name) (k8s_node_memory_working_set_bytes) / (max by (k8s_node_name) (k8s_node_memory_working_set_bytes)
+            + max by (k8s_node_name) (k8s_node_memory_available_bytes)) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: kubernetes
+          annotations:
+            summary: La mémoire disponible du nœud devient faible
+            description: Le working set représente plus de 90 % du total working set et mémoire disponible depuis
+              10 minutes.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubenodememoryhigh
+        - alert: KubeNodeDiskSpaceLow
+          expr: >-
+            max by (k8s_node_name) (k8s_node_filesystem_available_bytes) / max by (k8s_node_name) (k8s_node_filesystem_capacity_bytes)
+            < 0.1
+          for: 10m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: kubernetes
+          annotations:
+            summary: Le disque du nœud manque d’espace
+            description: >-
+              Moins de 10 % d’espace disponible sur le système de fichiers du nœud depuis 10 minutes. Vérifier
+              images, logs et volumes persistants.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubenodediskspacelow
+        - alert: KubePersistentVolumeClaimPending
+          expr: >-
+            max by (namespace, persistentvolumeclaim) (kube_persistentvolumeclaim_status_phase{namespace!="",phase="Pending"})
+            == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Un volume persistant reste en attente
+            description: Un PVC reste Pending depuis 10 minutes. Vérifier StorageClass, provisioner et événements
+              du volume.
+            runbook_url: >-
+              https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubepersistentvolumeclaimpending
       - name: otel-demo.monitoring
         interval: 30s
         rules:
@@ -248,9 +449,12 @@ prometheus:
             runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#collectorqueuesaturated
         - alert: MonitoringTargetDown
           expr: >-
-            up{job=~"kube-state-metrics|alertmanager"} == 0
+            up{job=~"kube-state-metrics|alertmanager|kubernetes-api-servers|kubernetes-nodes|kubernetes-nodes-cadvisor"} == 0
             or absent_over_time(up{job="kube-state-metrics"}[2m])
             or absent_over_time(up{job="alertmanager"}[2m])
+            or absent_over_time(up{job="kubernetes-api-servers"}[2m])
+            or absent_over_time(up{job="kubernetes-nodes"}[2m])
+            or absent_over_time(up{job="kubernetes-nodes-cadvisor"}[2m])
           for: 2m
           labels:
             severity: critical
@@ -258,7 +462,7 @@ prometheus:
             service_name: monitoring
           annotations:
             summary: Une cible essentielle de supervision est inaccessible
-            description: Prometheus ne peut plus collecter kube-state-metrics ou Alertmanager. Vérifier le job indiqué, ses pods et son service.
+            description: Prometheus ne peut plus collecter une cible essentielle (état Kubernetes, API, kubelet, cAdvisor ou Alertmanager). Vérifier le job indiqué, ses pods et son service.
             runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#monitoringtargetdown
         - alert: PrometheusRuleEvaluationFailures
           expr: increase(prometheus_rule_evaluation_failures_total{job="prometheus"}[5m]) > 0
@@ -292,6 +496,41 @@ prometheus:
             summary: Signal permanent de fonctionnement des alertes
             description: Cette alerte doit rester active. Sans récepteur externe de heartbeat, elle ne détecte pas une panne totale du cluster.
             runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#watchdog
+        - alert: KubeNodeResourceTelemetryMissing
+          expr: >-
+            label_replace(max by (node) (kube_node_info), "k8s_node_name", "$1", "node", "(.+)") unless on (k8s_node_name)
+            (count by (k8s_node_name) (last_over_time(k8s_node_cpu_usage[5m])) and on (k8s_node_name) count by
+            (k8s_node_name) (last_over_time(k8s_node_memory_working_set_bytes[5m])) and on (k8s_node_name) count
+            by (k8s_node_name) (last_over_time(k8s_node_memory_available_bytes[5m])) and on (k8s_node_name) count
+            by (k8s_node_name) (last_over_time(k8s_node_filesystem_available_bytes[5m])) and on (k8s_node_name)
+            count by (k8s_node_name) (last_over_time(k8s_node_filesystem_capacity_bytes[5m])))
+          for: 2m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: kubernetes
+          annotations:
+            summary: Les métriques de ressources du nœud sont incomplètes
+            description: >-
+              Au moins une métrique CPU, mémoire ou disque manque depuis 5 minutes. Vérifier kubeletstats et le
+              collector ; les seuils de saturation peuvent être aveugles.
+            runbook_url: >-
+              https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#kubenoderesourcetelemetrymissing
+        - alert: CollectorExportFailures
+          expr: >-
+            sum by (exporter) (increase({__name__=~"otelcol_exporter_send_failed_(spans|metric_points|log_records)_total",service_name="otelcol-contrib",k8s_namespace_name="otel-demo"}[5m]))
+            > 0
+          for: 2m
+          labels:
+            severity: warning
+            namespace: otel-demo
+            service_name: otel-collector
+          annotations:
+            summary: Le collector échoue à exporter de la télémétrie
+            description: >-
+              Des échecs d’export sont observés sur 5 minutes et la condition persiste 2 minutes. Vérifier le
+              backend et les erreurs permanentes ou réessayées.
+            runbook_url: https://github.com/brunfla/opentelemetry-demo-simple/blob/main/monitoring/RUNBOOKS.md#collectorexportfailures
 grafana:
   persistence:
     enabled: true

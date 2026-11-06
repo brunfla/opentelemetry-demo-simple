@@ -216,6 +216,12 @@ tests:
 - name: Both scrape failure and disappearing target are detected
   interval: 30s
   input_series:
+  - series: 'up{job="kubernetes-api-servers"}'
+    values: '1+0x20'
+  - series: 'up{job="kubernetes-nodes"}'
+    values: '1+0x20'
+  - series: 'up{job="kubernetes-nodes-cadvisor"}'
+    values: '1+0x20'
   - series: 'up{job="alertmanager",instance="alertmanager:9093"}'
     values: '0+0x20'
   alert_rule_test:
@@ -246,3 +252,631 @@ tests:
     alertname: Watchdog
     exp_alerts:
     - exp_labels: {namespace: otel-demo, service_name: monitoring, severity: info}
+
+# Couverture applicative étendue et anomalies du cluster.
+- name: KubeDeploymentReplicasMismatch waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: kube_deployment_status_replicas_available{namespace="kube-system",deployment="coredns"}
+    values: 1+0x40 2+0x50
+  - series: kube_deployment_spec_replicas{namespace="kube-system",deployment="coredns"}
+    values: 2+0x40 2+0x50
+  alert_rule_test:
+  - eval_time: 570s
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        deployment: coredns
+  - eval_time: 35m
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts: []
+- name: KubeDeploymentReplicasMismatch healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: kube_deployment_status_replicas_available{namespace="kube-system",deployment="coredns"}
+    values: 0+0x80
+  - series: kube_deployment_spec_replicas{namespace="kube-system",deployment="coredns"}
+    values: 0+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts: []
+- name: KubeStatefulSetReplicasMismatch waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: kube_statefulset_status_replicas_ready{namespace="otel-demo",statefulset="alertmanager"}
+    values: 0+0x40 1+0x50
+  - series: kube_statefulset_replicas{namespace="otel-demo",statefulset="alertmanager"}
+    values: 1+0x40 1+0x50
+  alert_rule_test:
+  - eval_time: 270s
+    alertname: KubeStatefulSetReplicasMismatch
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: KubeStatefulSetReplicasMismatch
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        statefulset: alertmanager
+  - eval_time: 35m
+    alertname: KubeStatefulSetReplicasMismatch
+    exp_alerts: []
+- name: KubeStatefulSetReplicasMismatch healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: kube_statefulset_status_replicas_ready{namespace="otel-demo",statefulset="alertmanager"}
+    values: 0+0x80
+  - series: kube_statefulset_replicas{namespace="otel-demo",statefulset="alertmanager"}
+    values: 0+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeStatefulSetReplicasMismatch
+    exp_alerts: []
+- name: KubeDaemonSetUnavailable waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: kube_daemonset_status_number_ready{namespace="kube-system",daemonset="kube-proxy"}
+    values: 0+0x40 1+0x50
+  - series: kube_daemonset_status_desired_number_scheduled{namespace="kube-system",daemonset="kube-proxy"}
+    values: 1+0x40 1+0x50
+  alert_rule_test:
+  - eval_time: 270s
+    alertname: KubeDaemonSetUnavailable
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: KubeDaemonSetUnavailable
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        daemonset: kube-proxy
+  - eval_time: 35m
+    alertname: KubeDaemonSetUnavailable
+    exp_alerts: []
+- name: KubeDaemonSetUnavailable healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: kube_daemonset_status_number_ready{namespace="kube-system",daemonset="kube-proxy"}
+    values: 1+0x80
+  - series: kube_daemonset_status_desired_number_scheduled{namespace="kube-system",daemonset="kube-proxy"}
+    values: 1+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeDaemonSetUnavailable
+    exp_alerts: []
+- name: KubePodNotReady waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: kube_pod_status_ready{namespace="kube-system",pod="dns-abc",condition="true"}
+    values: 0+0x40 1+0x50
+  - series: kube_pod_status_phase{namespace="kube-system",pod="dns-abc",phase="Pending"}
+    values: 1+0x40 0+0x50
+  alert_rule_test:
+  - eval_time: 570s
+    alertname: KubePodNotReady
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubePodNotReady
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        pod: dns-abc
+  - eval_time: 35m
+    alertname: KubePodNotReady
+    exp_alerts: []
+- name: KubePodNotReady healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: kube_pod_status_ready{namespace="kube-system",pod="dns-abc",condition="true"}
+    values: 0+0x80
+  - series: kube_pod_status_phase{namespace="kube-system",pod="dns-abc",phase="Succeeded"}
+    values: 1+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubePodNotReady
+    exp_alerts: []
+- name: KubeContainerWaiting waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: kube_pod_init_container_status_waiting_reason{namespace="kube-system",pod="dns-abc",container="dns",reason="ImagePullBackOff"}
+    values: 1+0x40 0+0x50
+  alert_rule_test:
+  - eval_time: 270s
+    alertname: KubeContainerWaiting
+    exp_alerts: []
+  - eval_time: 5m
+    alertname: KubeContainerWaiting
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        pod: dns-abc
+        container: dns
+        reason: ImagePullBackOff
+  - eval_time: 35m
+    alertname: KubeContainerWaiting
+    exp_alerts: []
+- name: KubeContainerWaiting healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: kube_pod_container_status_waiting_reason{namespace="kube-system",pod="dns-abc",container="dns",reason="ContainerCreating"}
+    values: 1+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeContainerWaiting
+    exp_alerts: []
+- name: Restarts outside application namespace fire then age out
+  interval: 30s
+  input_series:
+  - series: kube_pod_container_status_restarts_total{namespace="kube-system",pod="dns-abc",container="dns"}
+    values: 0+0x10 3+0x70
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: KubeContainerRestarts
+    exp_alerts: []
+  - eval_time: 8m
+    alertname: KubeContainerRestarts
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        pod: dns-abc
+        container: dns
+  - eval_time: 25m
+    alertname: KubeContainerRestarts
+    exp_alerts: []
+- name: Counter reset and single restart do not trigger restart storm
+  interval: 30s
+  input_series:
+  - series: kube_pod_container_status_restarts_total{namespace="kube-system",pod="dns-abc",container="dns"}
+    values: 10+0x10 0 1+0x70
+  alert_rule_test:
+  - eval_time: 15m
+    alertname: KubeContainerRestarts
+    exp_alerts: []
+- name: OOM event alerts immediately but historical last termination expires
+  interval: 30s
+  input_series:
+  - series: kube_pod_container_status_last_terminated_reason{namespace="kube-system",pod="dns-abc",container="dns",reason="OOMKilled"}
+    values: 0+0x19 1+0x40
+  - series: kube_pod_container_status_last_terminated_timestamp{namespace="kube-system",pod="dns-abc",container="dns"}
+    values: 0+0x19 600+0x40
+  alert_rule_test:
+  - eval_time: 9m
+    alertname: KubeContainerOOMKilled
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubeContainerOOMKilled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        pod: dns-abc
+        container: dns
+  - eval_time: 20m
+    alertname: KubeContainerOOMKilled
+    exp_alerts: []
+- name: KubeContainerMemoryNearLimit waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: container_memory_working_set_bytes{namespace="kube-system",pod="dns-abc",container="dns",job="kubernetes-nodes-cadvisor"}
+    values: 950+0x40 500+0x50
+  - series: kube_pod_container_resource_limits{namespace="kube-system",pod="dns-abc",container="dns",resource="memory",unit="byte"}
+    values: 1000+0x40 1000+0x50
+  alert_rule_test:
+  - eval_time: 570s
+    alertname: KubeContainerMemoryNearLimit
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubeContainerMemoryNearLimit
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        pod: dns-abc
+        container: dns
+  - eval_time: 35m
+    alertname: KubeContainerMemoryNearLimit
+    exp_alerts: []
+- name: KubeContainerMemoryNearLimit healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: container_memory_working_set_bytes{namespace="kube-system",pod="dns-abc",container="dns",job="kubernetes-nodes-cadvisor"}
+    values: 950+0x80
+  - series: kube_pod_container_resource_limits{namespace="kube-system",pod="dns-abc",container="dns",resource="memory",unit="byte"}
+    values: 0+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeContainerMemoryNearLimit
+    exp_alerts: []
+- name: CPU throttling persists before firing and clears after recovery
+  interval: 30s
+  input_series:
+  - series: container_cpu_cfs_throttled_periods_total{namespace="kube-system",pod="dns-abc",container="dns",job="kubernetes-nodes-cadvisor"}
+    values: 0+40x40 1600+0x40
+  - series: container_cpu_cfs_periods_total{namespace="kube-system",pod="dns-abc",container="dns",job="kubernetes-nodes-cadvisor"}
+    values: 0+100x81
+  alert_rule_test:
+  - eval_time: 10m
+    alertname: KubeContainerCPUThrottling
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: KubeContainerCPUThrottling
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: kube-system
+        pod: dns-abc
+        container: dns
+  - eval_time: 26m
+    alertname: KubeContainerCPUThrottling
+    exp_alerts: []
+- name: Idle containers and exactly 25 percent throttling do not alert
+  interval: 30s
+  input_series:
+  - series: 'container_cpu_cfs_throttled_periods_total{namespace="otel-demo",pod="idle",container="app",job="kubernetes-nodes-cadvisor"}'
+    values: '0+0x60'
+  - series: 'container_cpu_cfs_periods_total{namespace="otel-demo",pod="idle",container="app",job="kubernetes-nodes-cadvisor"}'
+    values: '0+0x60'
+  - series: container_cpu_cfs_throttled_periods_total{namespace="kube-system",pod="dns-abc",container="dns",job="kubernetes-nodes-cadvisor"}
+    values: 0+25x60
+  - series: container_cpu_cfs_periods_total{namespace="kube-system",pod="dns-abc",container="dns",job="kubernetes-nodes-cadvisor"}
+    values: 0+100x60
+  alert_rule_test:
+  - eval_time: 25m
+    alertname: KubeContainerCPUThrottling
+    exp_alerts: []
+- name: KubeNodeCPUHigh waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: k8s_node_cpu_usage{k8s_node_name="otel-demo",host_name="agent-abc"}
+    values: 11+0x40 4+0x50
+  - series: kube_node_status_capacity{node="otel-demo",resource="cpu",unit="core",job="kube-state-metrics"}
+    values: 12+0x40 12+0x50
+  alert_rule_test:
+  - eval_time: 870s
+    alertname: KubeNodeCPUHigh
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: KubeNodeCPUHigh
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: kubernetes
+        k8s_node_name: otel-demo
+  - eval_time: 35m
+    alertname: KubeNodeCPUHigh
+    exp_alerts: []
+- name: KubeNodeCPUHigh healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: k8s_node_cpu_usage{k8s_node_name="otel-demo"}
+    values: 10.8+0x80
+  - series: kube_node_status_capacity{node="otel-demo",resource="cpu",unit="core"}
+    values: 12+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeNodeCPUHigh
+    exp_alerts: []
+- name: KubeNodeMemoryHigh waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: k8s_node_memory_working_set_bytes{k8s_node_name="otel-demo"}
+    values: 950+0x40 500+0x50
+  - series: k8s_node_memory_available_bytes{k8s_node_name="otel-demo"}
+    values: 50+0x40 500+0x50
+  alert_rule_test:
+  - eval_time: 570s
+    alertname: KubeNodeMemoryHigh
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubeNodeMemoryHigh
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: kubernetes
+        k8s_node_name: otel-demo
+  - eval_time: 35m
+    alertname: KubeNodeMemoryHigh
+    exp_alerts: []
+- name: KubeNodeMemoryHigh healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: k8s_node_memory_working_set_bytes{k8s_node_name="otel-demo"}
+    values: 900+0x80
+  - series: k8s_node_memory_available_bytes{k8s_node_name="otel-demo"}
+    values: 100+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeNodeMemoryHigh
+    exp_alerts: []
+- name: KubeNodeDiskSpaceLow waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: k8s_node_filesystem_available_bytes{k8s_node_name="otel-demo"}
+    values: 50+0x40 500+0x50
+  - series: k8s_node_filesystem_capacity_bytes{k8s_node_name="otel-demo"}
+    values: 1000+0x40 1000+0x50
+  alert_rule_test:
+  - eval_time: 570s
+    alertname: KubeNodeDiskSpaceLow
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubeNodeDiskSpaceLow
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: kubernetes
+        k8s_node_name: otel-demo
+  - eval_time: 35m
+    alertname: KubeNodeDiskSpaceLow
+    exp_alerts: []
+- name: KubeNodeDiskSpaceLow healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: k8s_node_filesystem_available_bytes{k8s_node_name="otel-demo"}
+    values: 100+0x80
+  - series: k8s_node_filesystem_capacity_bytes{k8s_node_name="otel-demo"}
+    values: 1000+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubeNodeDiskSpaceLow
+    exp_alerts: []
+- name: KubePersistentVolumeClaimPending waits, fires and recovers
+  interval: 30s
+  input_series:
+  - series: kube_persistentvolumeclaim_status_phase{namespace="otel-demo",persistentvolumeclaim="prometheus",phase="Pending"}
+    values: 1+0x40 0+0x50
+  alert_rule_test:
+  - eval_time: 570s
+    alertname: KubePersistentVolumeClaimPending
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubePersistentVolumeClaimPending
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        persistentvolumeclaim: prometheus
+  - eval_time: 35m
+    alertname: KubePersistentVolumeClaimPending
+    exp_alerts: []
+- name: KubePersistentVolumeClaimPending healthy boundary does not alert
+  interval: 30s
+  input_series:
+  - series: kube_persistentvolumeclaim_status_phase{namespace="otel-demo",persistentvolumeclaim="prometheus",phase="Pending"}
+    values: 0+0x80
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: KubePersistentVolumeClaimPending
+    exp_alerts: []
+- name: One missing resource metric detects a blind spot per node and recovers
+  interval: 30s
+  input_series:
+  - series: kube_node_info{node="otel-demo"}
+    values: 1+0x60
+  - series: k8s_node_cpu_usage{k8s_node_name="otel-demo"}
+    values: 1+0x4 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 1+0x30
+  - series: k8s_node_memory_working_set_bytes{k8s_node_name="otel-demo"}
+    values: 1+0x60
+  - series: k8s_node_memory_available_bytes{k8s_node_name="otel-demo"}
+    values: 1+0x60
+  - series: k8s_node_filesystem_available_bytes{k8s_node_name="otel-demo"}
+    values: 1+0x60
+  - series: k8s_node_filesystem_capacity_bytes{k8s_node_name="otel-demo"}
+    values: 1+0x60
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: KubeNodeResourceTelemetryMissing
+    exp_alerts: []
+  - eval_time: 10m
+    alertname: KubeNodeResourceTelemetryMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: kubernetes
+        k8s_node_name: otel-demo
+        node: otel-demo
+  - eval_time: 18m
+    alertname: KubeNodeResourceTelemetryMissing
+    exp_alerts: []
+- name: Exporter failures fire, recover and ignore another collector service
+  interval: 30s
+  input_series:
+  - series: otelcol_exporter_send_failed_metric_points_total{service_name="otelcol-contrib",k8s_namespace_name="otel-demo",exporter="otlp_http/prometheus"}
+    values: 0+1x20 20+0x40
+  - series: otelcol_exporter_send_failed_spans_total{service_name="jaeger",k8s_namespace_name="otel-demo",exporter="storage"}
+    values: 0+100x60
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: CollectorExportFailures
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: CollectorExportFailures
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: otel-collector
+        exporter: otlp_http/prometheus
+  - eval_time: 16m
+    alertname: CollectorExportFailures
+    exp_alerts: []
+- name: Traffic collapses against established baseline and recovers
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER"}
+    values: 0+60x80 4800+0x39 4860+60x60
+  alert_rule_test:
+  - eval_time: 49m
+    alertname: ApplicationTrafficDrop
+    exp_alerts: []
+  - eval_time: 55m
+    alertname: ApplicationTrafficDrop
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        namespace: otel-demo
+        service_name: checkout
+  - eval_time: 65m
+    alertname: ApplicationTrafficDrop
+    exp_alerts: []
+- name: Low historical traffic and missing counters do not look like traffic collapse
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER"}
+    values: 0+1x80 80+0x80
+  alert_rule_test:
+  - eval_time: 55m
+    alertname: ApplicationTrafficDrop
+    exp_alerts: []
+- name: 'Payment coverage: Sustained server errors trigger after five minutes'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_calls_total{service_name="payment",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_ERROR"}
+    values: 0+6x30
+  - series: traces_span_metrics_calls_total{service_name="payment",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}
+    values: 0+54x30
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: ApplicationHighErrorRate
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: ApplicationHighErrorRate
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: payment
+        severity: critical
+- name: 'Payment coverage: p95 latency uses milliseconds and the traffic guard'
+  interval: 30s
+  input_series:
+  - series: traces_span_metrics_duration_milliseconds_bucket{service_name="payment",span_kind="SPAN_KIND_SERVER",le="1000"}
+    values: 0+80x30
+  - series: traces_span_metrics_duration_milliseconds_bucket{service_name="payment",span_kind="SPAN_KIND_SERVER",le="2000"}
+    values: 0+100x30
+  - series: traces_span_metrics_duration_milliseconds_bucket{service_name="payment",span_kind="SPAN_KIND_SERVER",le="+Inf"}
+    values: 0+100x30
+  - series: traces_span_metrics_calls_total{service_name="payment",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}
+    values: 0+100x30
+  - series: traces_span_metrics_duration_milliseconds_bucket{service_name="checkout",span_kind="SPAN_KIND_SERVER",le="1000"}
+    values: 0+0x30
+  - series: traces_span_metrics_duration_milliseconds_bucket{service_name="checkout",span_kind="SPAN_KIND_SERVER",le="2000"}
+    values: 0+0.5x30
+  - series: traces_span_metrics_duration_milliseconds_bucket{service_name="checkout",span_kind="SPAN_KIND_SERVER",le="+Inf"}
+    values: 0+0.5x30
+  - series: traces_span_metrics_calls_total{service_name="checkout",span_kind="SPAN_KIND_SERVER",status_code="STATUS_CODE_UNSET"}
+    values: 0+0.5x30
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: ApplicationHighLatency
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: ApplicationHighLatency
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: payment
+        severity: warning
+- name: API target and cAdvisor failures are detected independently
+  interval: 30s
+  input_series:
+  - series: up{job="kube-state-metrics"}
+    values: 1+0x30
+  - series: up{job="alertmanager"}
+    values: 1+0x30
+  - series: up{job="kubernetes-api-servers"}
+    values: 0+0x30
+  - series: up{job="kubernetes-nodes"}
+    values: 1+0x30
+  - series: up{job="kubernetes-nodes-cadvisor"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: MonitoringTargetDown
+    exp_alerts:
+    - exp_labels:
+        namespace: otel-demo
+        service_name: monitoring
+        severity: critical
+        job: kubernetes-api-servers
+    - exp_labels:
+        namespace: otel-demo
+        service_name: monitoring
+        severity: critical
+        job: kubernetes-nodes-cadvisor
+
+- name: Terminating unready pods do not alert
+  interval: 30s
+  input_series:
+  - series: kube_pod_status_ready{namespace="otel-demo",pod="old-pod",condition="true"}
+    values: 0+0x60
+  - series: kube_pod_status_phase{namespace="otel-demo",pod="old-pod",phase="Running"}
+    values: 1+0x60
+  - series: kube_pod_deletion_timestamp{namespace="otel-demo",pod="old-pod"}
+    values: 10+0x60
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: KubePodNotReady
+    exp_alerts: []
+- name: Containers without memory limits do not produce infinite ratios
+  interval: 30s
+  input_series:
+  - series: container_memory_working_set_bytes{namespace="otel-demo",pod="unlimited",container="app",job="kubernetes-nodes-cadvisor"}
+    values: 1000+0x60
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: KubeContainerMemoryNearLimit
+    exp_alerts: []
+- name: Recent non-OOM exits and old OOMs do not alert
+  interval: 30s
+  input_series:
+  - series: kube_pod_container_status_last_terminated_reason{namespace="otel-demo",pod="old",container="app",reason="OOMKilled"}
+    values: 1+0x60
+  - series: kube_pod_container_status_last_terminated_timestamp{namespace="otel-demo",pod="old",container="app"}
+    values: 0+0x60
+  - series: kube_pod_container_status_last_terminated_reason{namespace="otel-demo",pod="recent",container="app",reason="Error"}
+    values: 1+0x60
+  - series: kube_pod_container_status_last_terminated_timestamp{namespace="otel-demo",pod="recent",container="app"}
+    values: 900+0x60
+  alert_rule_test:
+  - eval_time: 16m
+    alertname: KubeContainerOOMKilled
+    exp_alerts: []
+- name: Short deployment outage during rollout does not warn
+  interval: 30s
+  input_series:
+  - series: kube_deployment_status_replicas_available{namespace="kube-system",deployment="coredns"}
+    values: 0+0x4 1+0x60
+  - series: kube_deployment_spec_replicas{namespace="kube-system",deployment="coredns"}
+    values: 1+0x65
+  alert_rule_test:
+  - eval_time: 2m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 3m
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: KubeDeploymentUnavailable
+    exp_alerts: []
+  - eval_time: 15m
+    alertname: KubeDeploymentReplicasMismatch
+    exp_alerts: []
