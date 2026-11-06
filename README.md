@@ -46,8 +46,12 @@ Les adresses, NodePorts et le certificat **public** du kubelet correspondent au 
 ## Alertes
 
 Le déploiement applique `values.yaml`, puis `monitoring/values.yaml`. Prometheus
-évalue 15 règles couvrant disponibilité, erreurs, latence, état Kubernetes et
-santé de la supervision. kube-state-metrics collecte l'état des ressources ;
+évalue 31 règles couvrant disponibilité, erreurs, latence, état Kubernetes et
+santé de la supervision. Les erreurs et la latence couvrent 12 services ; une
+chute de trafic est détectée sur frontend et checkout. Le cluster est surveillé
+sur tous les namespaces : pods bloqués, redémarrages/OOM, réplicas manquants,
+volumes en attente, mémoire, throttling CPU et ressources du nœud. Les règles
+et leurs limites sont détaillées dans les runbooks. kube-state-metrics collecte l'état des ressources ;
 Alertmanager regroupe les alertes. Prometheus (4 Gi), Grafana (1 Gi) et Alertmanager
 (1 Gi) utilisent des volumes persistants de la StorageClass par défaut du cluster.
 Ces volumes survivent aux remplacements des pods ; ils ne constituent pas une
