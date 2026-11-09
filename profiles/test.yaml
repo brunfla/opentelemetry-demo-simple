@@ -1,0 +1,162 @@
+# Paramètres du mode test, assemblés avec les valeurs communes par scripts/prepare-profile.py.
+components:
+  accounting: {enabled: false}
+  ad: {enabled: false}
+  agent: {enabled: false}
+  cart: {enabled: false}
+  chatbot: {enabled: false}
+  checkout: {enabled: false}
+  currency: {enabled: false}
+  email: {enabled: false}
+  fraud-detection: {enabled: false}
+  frontend: {enabled: false}
+  frontend-proxy: {enabled: false}
+  image-provider: {enabled: false}
+  mcp: {enabled: false}
+  payment: {enabled: false}
+  product-catalog: {enabled: false}
+  recommendation: {enabled: false}
+  shipping: {enabled: false}
+  flagd: {enabled: false}
+  kafka: {enabled: false}
+  astronomy-db: {enabled: false}
+  valkey-cart: {enabled: false}
+  telemetry-docs: {enabled: false}
+  opamp-server: {enabled: false}
+  firepit: {enabled: false}
+  quote:
+    enabled: true
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 200m, memory: 64Mi}
+    envOverrides:
+    - {name: OTEL_LOGS_EXPORTER, value: none}
+    - {name: OTEL_METRICS_EXPORTER, value: none}
+    - {name: OTEL_BSP_MAX_QUEUE_SIZE, value: '256'}
+    - {name: OTEL_BSP_MAX_EXPORT_BATCH_SIZE, value: '64'}
+  load-generator:
+    enabled: true
+    imageOverride:
+      repository: docker.io/library/busybox
+      tag: '1.38.0'
+    useDefault: {env: false}
+    env: []
+    service: null
+    resources:
+      requests: {cpu: 5m, memory: 8Mi}
+      limits: {cpu: 50m, memory: 16Mi}
+    command:
+    - sh
+    - -c
+    - |
+      trap 'exit 0' TERM INT
+      while true; do
+        wget -q -T 5 -O /dev/null --header='Content-Type: application/json' \
+          --post-data='{"numberOfItems":1}' http://quote:8080/getquote \
+          || echo 'quote request failed' >&2
+        sleep 5 & wait $!
+      done
+jaeger: {enabled: false}
+opensearch: {enabled: false}
+otel-ebpf-profiler: {enabled: false}
+# Garder le chart et son PVC pour pouvoir réactiver Grafana sans perdre ses données.
+grafana:
+  replicas: 0
+opentelemetry-collector:
+  resources:
+    requests: {cpu: 50m, memory: 96Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  command:
+    extraArgs: []
+  presets:
+    hostMetrics: {enabled: false}
+    clusterMetrics: {enabled: false}
+    annotationDiscovery:
+      metrics: {enabled: false}
+  alternateConfig:
+    connectors:
+      span_metrics:
+        metrics_flush_interval: 15s
+        metrics_expiration: 2m
+        aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
+        aggregation_cardinality_limit: 1000
+        histogram:
+          unit: ms
+    exporters:
+      otlp_http/prometheus:
+        endpoint: http://prometheus:9090/api/v1/otlp
+        tls: {insecure: true}
+        sending_queue:
+          queue_size: 100
+    extensions:
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133
+    processors:
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 70
+        spike_limit_percentage: 15
+      batch:
+        send_batch_size: 256
+        send_batch_max_size: 512
+        timeout: 5s
+      resource_detection:
+        detectors: [env, system]
+      resource/quote-probe:
+        attributes:
+        - {key: service.name, value: quote, action: upsert}
+    receivers:
+      otlp:
+        protocols:
+          grpc: {endpoint: '${env:MY_POD_IP}:4317'}
+          http: {endpoint: '${env:MY_POD_IP}:4318'}
+      kubeletstats:
+        ca_file: /etc/otel/kubelet-ca/ca.crt
+        endpoint: https://${env:K8S_NODE_NAME}:10250
+      http_check/quote:
+        collection_interval: 30s
+        targets:
+        - endpoint: http://quote:8080/getquote
+          method: POST
+          body: '{"numberOfItems":1}'
+          headers: {Content-Type: application/json}
+          timeout: 5s
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [span_metrics]
+        metrics:
+          receivers: [otlp, span_metrics]
+          processors: [memory_limiter, resource_detection, batch]
+          exporters: [otlp_http/prometheus]
+        metrics/probe:
+          receivers: [http_check/quote]
+          processors: [memory_limiter, resource/quote-probe, batch]
+          exporters: [otlp_http/prometheus]
+prometheus:
+  server:
+    # Les PVC existants gardent leur taille. Seule la rétention des métriques diminue.
+    retention: 6h
+    retentionSize: 512MB
+    resources:
+      requests: {cpu: 50m, memory: 256Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+    global:
+      scrape_interval: 60s
+      evaluation_interval: 30s
+  configmapReload:
+    prometheus:
+      resources:
+        requests: {cpu: 5m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 32Mi}
+  alertmanager:
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 64Mi}
+  kube-state-metrics:
+    resources:
+      requests: {cpu: 10m, memory: 24Mi}
+      limits: {cpu: 100m, memory: 48Mi}

@@ -9,10 +9,55 @@ monitoring/tests.yaml         Scénarios de test des alertes
 monitoring/RUNBOOKS.md        Procédures d'intervention et notifications
 scripts/check-monitoring.py  Validation et tests des règles rendues
 scripts/smoke-alerting.py     Test de déclenchement et résolution sur le cluster
+scripts/list-alerts.sh       Liste des alertes avec identifiants ou de toutes les règles
 .github/workflows/helm.yml    Validation et déploiement
 .gitignore
 README.md
 ```
+
+## Profil de test léger
+
+Le fichier `deployment-profile` sélectionne le profil déployé après fusion sur
+`main`. Il contient actuellement `test`. Pour retrouver la démo complète,
+remplacer son contenu par `full` dans une PR. La CI valide les deux profils à
+chaque changement ; le runner déploie uniquement celui choisi dans Git.
+
+En mode `test`, seuls `quote` et une boucle BusyBox envoyant un POST toutes les
+5 secondes restent côté application. Le collector conserve la conversion des
+traces en métriques et les métriques kubelet. Prometheus, Alertmanager et
+kube-state-metrics restent actifs. Grafana est réduit à zéro réplica, son PVC
+est conservé ; Jaeger et les autres composants de la boutique sont désactivés.
+Les traces détaillées ne sont plus stockées, mais les alertes de latence et
+d’erreurs continuent à fonctionner à partir des métriques de spans.
+
+Les limites mémoire des conteneurs actifs totalisent **992 Mio** sur un nœud,
+auxquels s’ajoutent Kubernetes, containerd et Docker. L’objectif de consommation
+totale est **environ 1 à 2 Gio**, à mesurer après déploiement ; 1 Gio pour tout
+Minikube est trop serré. Les limites ne sont pas une mesure de consommation et
+ne plafonnent pas la mémoire du nœud. n8n, ses agents et les autres conteneurs
+Docker de la machine ne sont pas inclus dans ce budget. La rétention Prometheus
+passe à 6 heures / 512 Mo : les métriques plus anciennes seront purgées. Les PVC
+Prometheus, Alertmanager et Grafana gardent leur taille et ne sont pas recréés.
+
+Les 31 règles restent présentes. La disponibilité HTTP, l’absence de métriques
+applicatives et la chute de trafic ciblent `quote` ; les services volontairement
+arrêtés ne déclenchent pas d’alertes de télémétrie manquante. Le routage n8n existant
+est conservé. Consulter [Prometheus](http://localhost:9090/alerts), ou ouvrir
+Alertmanager avec :
+
+```bash
+kubectl --context otel-demo -n otel-demo port-forward service/alertmanager 9093:9093
+```
+
+Puis ouvrir `http://localhost:9093`. La boutique et Grafana sont indisponibles
+dans ce mode. Pour un test de déclenchement/résolution après déploiement :
+
+```bash
+python3 scripts/smoke-alerting.py --skip-grafana
+```
+
+Ce test envoie de vraies notifications à n8n. Pour tester sans notification,
+utiliser les scénarios promtool de la CI.
 
 ## Cycle de modification
 
@@ -46,8 +91,12 @@ Les adresses, NodePorts et le certificat **public** du kubelet correspondent au 
 ## Alertes
 
 Le déploiement applique `values.yaml`, puis `monitoring/values.yaml`. Prometheus
-évalue 15 règles couvrant disponibilité, erreurs, latence, état Kubernetes et
-santé de la supervision. kube-state-metrics collecte l'état des ressources ;
+évalue 31 règles couvrant disponibilité, erreurs, latence, état Kubernetes et
+santé de la supervision. Les erreurs et la latence couvrent 12 services ; une
+chute de trafic est détectée sur frontend et checkout. Le cluster est surveillé
+sur tous les namespaces : pods bloqués, redémarrages/OOM, réplicas manquants,
+volumes en attente, mémoire, throttling CPU et ressources du nœud. Les règles
+et leurs limites sont détaillées dans les runbooks. kube-state-metrics collecte l'état des ressources ;
 Alertmanager regroupe les alertes. Prometheus (4 Gi), Grafana (1 Gi) et Alertmanager
 (1 Gi) utilisent des volumes persistants de la StorageClass par défaut du cluster.
 Ces volumes survivent aux remplacements des pods ; ils ne constituent pas une
@@ -56,12 +105,37 @@ La rétention Prometheus est limitée à 7 jours ou 3 Go de blocs, selon la prem
 limite atteinte, afin de garder de l'espace pour son journal d'écriture.
 
 Dans Grafana, ouvrir **Alerting → Alert rules** et sélectionner **Prometheus**.
-La source **Alertmanager** permet de gérer les silences. Le récepteur initial
-`grafana-only` n'envoie aucune notification externe. L'alerte informative
-`Watchdog` reste toujours active ; la surveillance d'une panne totale nécessite
-un récepteur de heartbeat extérieur au cluster.
+La source **Alertmanager** permet de gérer les silences. Le récepteur
+`n8n-incidents` transmet les alertes du namespace `otel-demo` (hors `Watchdog`)
+au webhook n8n local, y compris leur résolution. Le Secret Kubernetes existant
+`incident-n8n-webhook`, clé `webhook-token`, fournit l’authentification et reste
+hors de Git. Les autres namespaces restent consultables dans Grafana sans
+notification n8n. `Watchdog` reste toujours active ; la surveillance d'une panne
+totale nécessite un récepteur de heartbeat extérieur au cluster.
 
 Voir [les procédures, seuils et instructions de notification](monitoring/RUNBOOKS.md).
+
+Pour consulter les alertes avec `kubectl` et `jq` (lecture seule) :
+
+```bash
+./scripts/list-alerts.sh          # Alertes dans Alertmanager, avec leur fingerprint
+./scripts/list-alerts.sh --rules  # Toutes les règles Prometheus et leur état
+./scripts/list-alerts.sh --json   # Détails complets : labels, annotations, silences…
+```
+
+Le contexte et le namespace par défaut sont `otel-demo` ; utiliser `--context`
+et `--namespace` pour les changer. Les alertes encore `pending` dans Prometheus
+ne sont pas envoyées à Alertmanager. La colonne `ETAT_AM` indique l'état de
+notification (`active`, `suppressed` ou `unprocessed`), pas l'état de la règle
+Prometheus (`inactive`, `pending` ou `firing`). Ce n'est pas un historique.
+
+Chaque instance reçue par Alertmanager a un `fingerprint` calculé à partir de
+l'ensemble de ses labels. `alertname` désigne le nom de l'alerte ; deux pods
+touchés par la même règle peuvent donc avoir deux fingerprints différents.
+Le même ensemble de labels conserve son fingerprint lors d'une nouvelle panne :
+pour distinguer les occurrences, associer `fingerprint` et `startsAt`.
+Voir [les champs des alertes Alertmanager](https://prometheus.io/docs/alerting/latest/notifications/#alert).
+
 Pour tester le trajet complet et la résolution sans arrêter un service :
 
 ```bash
@@ -69,11 +143,12 @@ python3 scripts/smoke-alerting.py
 ```
 
 Ce test prend environ 4 à 7 minutes et crée puis supprime un déploiement temporaire.
-Il est volontairement distinct de la CI de validation, qui n'accède pas au cluster.
+Il envoie une notification réelle à n8n et peut déclencher le traitement d’un
+incident. Il est distinct de la CI de validation, qui n'accède pas au cluster.
 
 ## Runner local
 
-Le runner doit tourner sur la machine qui accède au contexte Kubernetes `otel-demo`, avec `kubectl` disponible. GitHub installe la version de Helm déclarée dans le workflow.
+Le runner doit tourner sur la machine qui accède au contexte Kubernetes `otel-demo`, avec `kubectl`, Python 3 et PyYAML `6.0.3` disponibles. GitHub installe la version de Helm déclarée dans le workflow.
 
 Pour enregistrer un runner : **Settings → Actions → Runners → New self-hosted runner**, puis suivre les commandes GitHub et ajouter le label `otel-demo`. Le dépôt est privé.
 
@@ -103,12 +178,13 @@ mkdir -p .helm
 helm pull opentelemetry-demo \
   --repo https://open-telemetry.github.io/opentelemetry-helm-charts \
   --version 0.42.6 --untar --untardir .helm
-helm lint .helm/opentelemetry-demo \
-  --values values.yaml --values monitoring/values.yaml --strict
+python3 scripts/prepare-profile.py --output .helm/profile-values.yaml
+helm lint .helm/opentelemetry-demo --values .helm/profile-values.yaml --strict
 helm template otel-demo .helm/opentelemetry-demo \
-  --namespace otel-demo --values values.yaml \
-  --values monitoring/values.yaml > .helm/rendered.yaml
-python3 scripts/check-monitoring.py .helm/rendered.yaml
+  --namespace otel-demo --values .helm/profile-values.yaml > .helm/rendered.yaml
+python3 scripts/check-monitoring.py .helm/rendered.yaml --profile "$(cat deployment-profile)"
+# En mode test :
+python3 scripts/check-test-profile.py .helm/rendered.yaml
 ```
 
 La validation des alertes nécessite Python 3, PyYAML `6.0.3` et Docker. Elle

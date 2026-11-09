@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--context", default="otel-demo")
     parser.add_argument("--namespace", default="otel-demo", choices=["otel-demo"])
     parser.add_argument("--timeout", type=int, default=480, help="Timeout for each phase in seconds")
+    parser.add_argument("--skip-grafana", action="store_true", help="Test profile: Grafana has zero replicas")
     args = parser.parse_args()
     kubectl = ["kubectl", "--context", args.context, "--request-timeout=15s", "-n", args.namespace]
     name = "alerting-smoke-" + uuid.uuid4().hex[:8]
@@ -30,12 +31,14 @@ def main():
     def check():
         prom = read("prometheus:9090/proxy/api/v1/alerts")["data"]["alerts"]
         manager = read("alertmanager:9093/proxy/api/v2/alerts")
-        grafana = read("grafana:80/proxy/grafana/api/datasources/proxy/uid/webstore-metrics/api/v1/alerts")["data"]["alerts"]
-        return {
+        status = {
             "Prometheus": any(matches(a) and a["state"] == "firing" for a in prom),
             "Alertmanager": any(matches(a) for a in manager),
-            "Grafana": any(matches(a) and a["state"] == "firing" for a in grafana),
         }
+        if not args.skip_grafana:
+            grafana = read("grafana:80/proxy/grafana/api/datasources/proxy/uid/webstore-metrics/api/v1/alerts")["data"]["alerts"]
+            status["Grafana"] = any(matches(a) and a["state"] == "firing" for a in grafana)
+        return status
 
     def wait_for(firing):
         deadline = time.monotonic() + args.timeout
@@ -77,7 +80,8 @@ def main():
             run("delete", "deployment", name, "--wait=false", "--ignore-not-found=true")
             print(f"Deleted {name}.", flush=True)
     wait_for(False)
-    print("PASS: alert fired and resolved in Prometheus, Alertmanager and Grafana.", flush=True)
+    destinations = "Prometheus and Alertmanager" if args.skip_grafana else "Prometheus, Alertmanager and Grafana"
+    print(f"PASS: alert fired and resolved in {destinations}.", flush=True)
 
 
 if __name__ == "__main__":

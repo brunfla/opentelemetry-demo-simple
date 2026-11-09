@@ -5,15 +5,57 @@ et Grafana les affiche dans **Alerting → Alert rules**, source **Prometheus**.
 La source **Alertmanager** permet de consulter les groupes et de créer des silences.
 Les règles restent gérées dans Git, pas dans l'interface Grafana.
 
-Le récepteur `grafana-only` ne contient volontairement aucun canal externe :
-aucun email ou webhook n'est envoyé. `Watchdog` est une alerte informative
-permanente, pas un incident. Une panne complète du nœud nécessite un contrôle
-extérieur au cluster et un récepteur externe pour son heartbeat.
+Le récepteur `n8n-incidents` envoie les alertes du namespace `otel-demo`, hors
+`Watchdog`, au webhook local `http://host.docker.internal:5678/webhook/otel-alerts`.
+Les résolutions sont également envoyées. L’en-tête `X-API-Key` est lu depuis
+`/etc/alertmanager/n8n/webhook-token`, monté en lecture seule à partir du Secret
+existant `incident-n8n-webhook`. Sa valeur reste hors de Git et n’est pas créée
+par le chart. Le déploiement nécessite ce Secret avec la clé `webhook-token`.
+Les alertes d’autres namespaces, notamment `kube-system`, restent dans Grafana
+via le récepteur `grafana-only`, sans envoi à n8n. Ce périmètre préserve le routage
+qui existait sur le cluster avant son intégration dans Git.
+
+`Watchdog` est une alerte informative permanente, pas un incident. Son récepteur
+est distinct de n8n. Une panne complète du nœud nécessite un contrôle extérieur
+au cluster et un récepteur externe pour son heartbeat.
 
 Les seuils initiaux (5 % d'erreurs, p95 > 1 s, au moins 10 appels sur 5 minutes)
 sont adaptés à une démo à faible trafic. Ils doivent être réévalués à partir du
 trafic et des objectifs du service avant un usage en production. Les métriques
 de spans supposent que la collecte des traces reste représentative du trafic.
+
+
+## Couverture et limites
+
+Les erreurs et la latence couvrent les spans serveur de `frontend`,
+`frontend-proxy`, `checkout`, `cart`, `payment`, `product-catalog`, `currency`,
+`shipping`, `quote`, `email`, `ad` et `image-provider`. Les noms et les histogrammes
+ont été vérifiés dans Prometheus. L’absence de spans et la chute de trafic sont
+surveillées pour les parcours centraux `frontend` et `checkout` ; une absence de
+trafic sur les autres services ne déclenche pas à elle seule une alerte.
+
+Les objets Kubernetes sont surveillés dans **tous les namespaces**, notamment
+`kube-system`. Les valeurs de saturation proviennent du kubelet via cAdvisor
+(conteneurs) et du receiver OpenTelemetry `kubeletstats` (nœuds). La collecte des
+PVC est activée pour détecter les demandes de volume bloquées. Les séries
+`kubelet_volume_stats_*` ne sont pas exposées sur ce Minikube : le seuil disque
+couvre le système de fichiers du nœud, pas le remplissage individuel de chaque PVC.
+Sur Docker, cette mesure dépend du stockage exposé au nœud Minikube et ne couvre
+pas tous les disques de la machine hôte.
+
+Ce sont des seuils explicites, complétés par une baisse de trafic par rapport
+à une référence récente ; ce n’est pas un modèle d’apprentissage automatique.
+Les délais limitent le bruit des rollouts courts. Les seuils doivent être ajustés
+après observation de la démo, en particulier quand des feature flags simulent des
+pannes. Les compteurs et les percentiles peuvent manquer de données quand la
+collecte est interrompue : les alertes de télémétrie signalent ces angles morts.
+
+Alertmanager inhibe uniquement `KubeDeploymentReplicasMismatch` lorsqu’un
+`KubeDeploymentUnavailable` concerne le **même déploiement et namespace**.
+Une alerte critique ne masque plus tous les avertissements du même service.
+Les labels absents étant traités comme des valeurs vides par
+[Alertmanager](https://prometheus.io/docs/alerting/latest/configuration/#inhibit_rule),
+les règles d’inhibition doivent rester ciblées.
 
 ## Vérifications communes
 
@@ -42,7 +84,7 @@ une perte de collecte peut rendre la sonde muette sans panne de la boutique.
 
 ## ApplicationHighErrorRate
 
-Plus de 5 % des spans **serveur** de `frontend` ou `checkout` ont le statut ERROR,
+Plus de 5 % des spans **serveur** des services surveillés ont le statut ERROR,
 avec au moins 10 appels sur 5 minutes, pendant 5 minutes. Les spans client et
 internes ne comptent pas dans ce ratio.
 
@@ -70,7 +112,7 @@ un redémarrage, ce signal peut être attendu : utiliser un silence ciblé.
 
 ## KubeDeploymentUnavailable
 
-Un déploiement du namespace `otel-demo` désire au moins un réplica, mais aucun
+Un déploiement, dans tout namespace (y compris `kube-system`), désire au moins un réplica, mais aucun
 n'est disponible depuis 3 minutes. Les déploiements volontairement réduits à zéro
 ne déclenchent pas cette alerte.
 
@@ -131,8 +173,10 @@ Augmenter la file sans corriger le backend ne résout pas le problème.
 
 ## MonitoringTargetDown
 
-Prometheus ne collecte plus `kube-state-metrics` ou `alertmanager`, ou leur cible
-disparaît. Vérifier **Prometheus → Targets**, les services, EndpointSlices et pods.
+Prometheus ne collecte plus une cible essentielle : `kube-state-metrics`,
+`alertmanager`, `kubernetes-api-servers`, `kubernetes-nodes` ou
+`kubernetes-nodes-cadvisor`. Une disparition complète de l’un de ces jobs est
+également détectée après deux minutes sans échantillon, puis deux minutes de délai. Vérifier **Prometheus → Targets**, les services, EndpointSlices et pods.
 Une panne d'Alertmanager peut empêcher la réception de ses propres alertes :
 Prometheus et Grafana permettent encore de les consulter si ceux-ci fonctionnent.
 
@@ -153,8 +197,9 @@ ConfigMaps sans nécessiter un redémarrage du serveur.
 
 Cette alerte `info` doit toujours être active. Elle vérifie le trajet
 Prometheus → Alertmanager et fournit un signal à raccorder à un récepteur de
-heartbeat **hors de ce cluster**. En mode `grafana-only`, aucun service externe
-ne vérifie son absence : la couverture d'une panne totale reste à configurer.
+heartbeat **hors de ce cluster**. Le récepteur `watchdog` n’est pas raccordé à
+un service externe ; n8n ne reçoit pas cette alerte. La couverture d’une panne
+totale reste donc à configurer.
 
 ## Tests
 
@@ -173,8 +218,9 @@ python3 scripts/smoke-alerting.py
 Le script crée un déploiement temporaire impossible à placer. Il attend
 `KubeDeploymentUnavailable` dans Prometheus, Alertmanager et via la source de
 données Grafana, supprime ce déploiement, puis vérifie la résolution. Il ne
-modifie aucun service applicatif. Compter environ 4 à 7 minutes. Si un canal
-externe est ajouté plus tard, ce test peut y envoyer une vraie notification.
+modifie aucun service applicatif. Compter environ 4 à 7 minutes. Avec le routage
+actuel, ce test envoie une vraie notification à n8n et peut créer un incident.
+Les tests de routage d’`amtool` exécutés en CI sont locaux et n’envoient rien.
 
 ## Ajouter un canal de notification
 
@@ -193,3 +239,141 @@ Références : [Prometheus](https://prometheus.io/docs/practices/alerting/),
 [Alertmanager](https://prometheus.io/docs/alerting/latest/configuration/),
 [tests de règles](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/),
 [Grafana et Alertmanager](https://grafana.com/docs/grafana/latest/datasources/alertmanager/).
+
+## ApplicationTrafficDrop
+
+Le débit est inférieur à 20 % de la référence de 30 minutes décalée de 10 minutes, depuis 10 minutes. La référence contient au moins 100 appels. Vérifier le générateur de trafic et le parcours utilisateur.
+
+Comparer le débit actuel au générateur de trafic et aux traces. Une baisse volontaire de charge peut déclencher cette alerte : utiliser un silence pendant ces essais. La référence est une fenêtre de 30 minutes décalée de 10 minutes et doit contenir au moins 100 appels. Un historique partiel suffit si ce minimum est atteint. Si les séries disparaissent entièrement, consulter `ApplicationTelemetryMissing`. Après une longue baisse, la référence finit par baisser aussi ; ce signal détecte une rupture, pas une indisponibilité permanente.
+
+## KubeDeploymentReplicasMismatch
+
+Le nombre de réplicas disponibles reste inférieur au nombre désiré pendant 10 minutes. Vérifier le rollout et les readiness probes.
+
+Comparer réplicas désirés, disponibles et mis à jour avec `kubectl describe deployment`. Examiner rollout, readiness, scheduling et quota. Un scale-to-zero ne déclenche pas cette règle. Une indisponibilité totale reste couverte par la règle critique plus rapide.
+
+## KubeStatefulSetReplicasMismatch
+
+Des réplicas restent indisponibles depuis 5 minutes. Vérifier les pods et les volumes, notamment ceux d’Alertmanager.
+
+Examiner le StatefulSet, ses pods ordonnés et les PVC. Pour Alertmanager, vérifier aussi la cible Prometheus. Un scale-to-zero volontaire ne déclenche pas cette règle.
+
+## KubeDaemonSetUnavailable
+
+Le nombre de pods prêts reste inférieur au nombre attendu depuis 5 minutes. Examiner les composants système et le placement.
+
+Examiner `kubectl get daemonsets -A`, puis les événements et taints des nœuds concernés. Cette règle inclut les composants système comme kube-proxy. Le collector possède sa règle critique dédiée et est exclu ici.
+
+## KubePodNotReady
+
+Un pod Pending, Running ou Unknown reste non prêt pendant 10 minutes. Les pods terminés et en cours de suppression sont exclus.
+
+Examiner `kubectl describe pod` dans le namespace de l’alerte : scheduling, readiness, init-containers, volumes et ressources. Les pods Succeeded/Failed et ceux qui ont un timestamp de suppression sont exclus pour éviter le bruit des jobs et des suppressions.
+
+## KubeContainerWaiting
+
+Une erreur d’image ou de configuration bloque un conteneur ou init-container depuis 5 minutes. Vérifier image, registre, Secrets et ConfigMaps.
+
+Lire la raison et les événements du pod. Vérifier le tag, l’existence de l’image, les credentials du registre et les Secrets/ConfigMaps référencés. Les init-containers sont inclus. ContainerCreating seul n’est pas une erreur d’image.
+
+## KubeContainerRestarts
+
+Au moins 3 redémarrages estimés sur 15 minutes, pendant 2 minutes. Examiner les logs précédents et les probes.
+
+Lire les logs avec `--previous` et vérifier les probes. Le compteur est évalué avec `increase`, qui prend en compte les resets et extrapole les limites de fenêtre ; le nombre est une estimation. Un redémarrage isolé n’est pas une tempête de redémarrages.
+
+## KubeContainerOOMKilled
+
+La dernière terminaison est OOMKilled et date de moins de 10 minutes. Vérifier consommation, limite mémoire et pression du nœud.
+
+Examiner la dernière terminaison, les limites mémoire et les événements. Le timestamp de terminaison limite l’alerte aux dix dernières minutes : une ancienne valeur OOMKilled ne doit pas rester active indéfiniment. Le signal concerne les conteneurs principaux, pas les init-containers. Ne pas augmenter systématiquement la limite sans chercher une fuite ou une pression mémoire globale.
+
+## KubeContainerMemoryNearLimit
+
+Le working set dépasse 90 % de la limite mémoire depuis 10 minutes. Les conteneurs sans limite positive sont exclus.
+
+Comparer le working set à la limite du conteneur et à son évolution. Vérifier heap, caches et limites. Les conteneurs sans limite positive sont exclus ; le signal du nœud couvre la saturation globale. Le working set ne prédit pas tous les OOM.
+
+## KubeContainerCPUThrottling
+
+Plus de 25 % des périodes CPU sont limitées sur 5 minutes, pendant 10 minutes. Corréler avec latence et limites CPU avant de les modifier.
+
+Comparer la proportion de périodes CPU limitées avec le p95 et la charge. Ce ratio n’est pas un pourcentage de CPU utilisé. Examiner les limites CPU avant de les augmenter ; une activité normale peut produire du throttling sans incident utilisateur.
+
+## KubeNodeCPUHigh
+
+La consommation CPU dépasse 90 % de la capacité du nœud depuis 15 minutes. Vérifier les principaux consommateurs.
+
+Comparer les cœurs consommés (`k8s_node_cpu_usage`) à la capacité CPU du même nœud. Identifier les pods consommateurs et vérifier la capacité allouée à Minikube. La jointure utilise le nom du nœud ; les labels de pod du collector ne doivent pas casser le calcul.
+
+## KubeNodeMemoryHigh
+
+Le working set représente plus de 90 % du total working set et mémoire disponible depuis 10 minutes.
+
+La proportion est working set / (working set + mémoire disponible) issue de kubeletstats. Examiner les pods consommateurs, la mémoire accordée à Minikube et `MemoryPressure`. Vérifier aussi la mémoire de l’hôte Docker si nécessaire.
+
+## KubeNodeDiskSpaceLow
+
+Moins de 10 % d’espace disponible sur le système de fichiers du nœud depuis 10 minutes. Vérifier images, logs et volumes persistants.
+
+Examiner l’espace du système de fichiers du nœud, les images inutilisées, les journaux et la rétention Prometheus. Identifier les données avant tout nettoyage. Ce signal ne mesure pas la capacité restante de chaque PVC et ne surveille pas l’ensemble des disques de l’hôte.
+
+## KubePersistentVolumeClaimPending
+
+Un PVC reste Pending depuis 10 minutes. Vérifier StorageClass, provisioner et événements du volume.
+
+Examiner `kubectl describe pvc` dans le namespace concerné, la StorageClass par défaut et le provisioner. Sur Minikube, vérifier le storage-provisioner et les événements de scheduling. Les volumes Bound ne déclenchent pas cette règle.
+
+## KubeNodeResourceTelemetryMissing
+
+Au moins une métrique CPU, mémoire ou disque manque depuis 5 minutes. Vérifier kubeletstats et le collector ; les seuils de saturation peuvent être aveugles.
+
+L’inventaire des nœuds vient de kube-state-metrics. Pour chaque nœud connu, la règle vérifie la présence récente des cinq séries CPU, mémoire et disque nécessaires. Vérifier kubeletstats, les droits et le pipeline métriques. Une panne de kube-state-metrics relève de `MonitoringTargetDown`. Une disparition partielle des métriques cAdvisor reste à diagnostiquer dans Targets et les logs ; le contrôle `up` ne vérifie pas chaque famille de métriques.
+
+## CollectorExportFailures
+
+Des échecs d’export sont observés sur 5 minutes et la condition persiste 2 minutes. Vérifier le backend et les erreurs permanentes ou réessayées.
+
+Examiner l’exporter indiqué et les logs du collector. Les échecs de spans, métriques et logs sont additionnés. Ils peuvent être réessayés : l’alerte ne prouve pas à elle seule une perte définitive. Corréler avec `CollectorQueueSaturated`, les erreurs réseau et la disponibilité du backend.
+
+## Conflit de propriété Helm et modifications manuelles
+
+Helm 4 utilise l’application côté serveur. Une modification avec `kubectl patch`
+peut devenir propriétaire d’un champ et bloquer ensuite l’upgrade, ainsi que son
+rollback. Le 6 novembre 2026, le champ `data.alertmanager.yml` appartenait à
+`kubectl-patch` après l’ajout du webhook n8n hors de Git. Le montage de son Secret
+avait lui aussi été ajouté au StatefulSet par un patch.
+
+Avant toute reprise de propriété, sauvegarder le ConfigMap et inspecter
+`metadata.managedFields` ainsi que la configuration effective. Réintégrer les
+modifications utiles dans les values, en particulier routes et montages de
+Secrets. Le token n’a pas sa place dans ces sauvegardes ni dans Git.
+
+La réparation ponctuelle du ConfigMap a conservé exactement la configuration
+YAML interprétée : seule sa sérialisation a changé pour permettre à Helm de
+reprendre le champ via une application ciblée avec `--field-manager=helm` et
+`--force-conflicts`. Vérifier ensuite le propriétaire et l’égalité de la
+configuration interprétée. Le workflow normal n’active pas le forçage des
+conflits sur l’ensemble de la release. Un échec du rollback peut laisser des
+ressources partiellement mises à jour : après la fusion de la correction,
+vérifier le statut Helm, les pods, les 31 règles et la configuration chargée.
+
+Les futures modifications d’Alertmanager doivent passer par les values et une
+PR pour éviter de recréer cette divergence. Références :
+[conflits d’application Kubernetes](https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts),
+[options d’upgrade Helm](https://docs.helm.sh/docs/helm/helm_upgrade/).
+
+## TestServiceUnavailable
+
+En profil `test`, cette règle remplace `WebstoreUnavailable`. Le collector envoie
+un POST JSON sur `http://quote:8080/getquote` toutes les 30 secondes. Une absence
+de réponse 2xx ou de métriques pendant la fenêtre attendue déclenche l’alerte.
+Vérifier le pod `quote`, le service Kubernetes et le collector.
+
+Dans ce profil, `ApplicationTelemetryMissing` et `ApplicationTrafficDrop`
+surveillent uniquement `quote`. Les règles d’erreur et de latence s’appliquent
+à ses spans serveur. La petite sonde reste active même lorsque le générateur
+est arrêté ; une forte baisse de trafic est donc possible sans perte totale
+de télémétrie. Les traces sont converties en métriques puis abandonnées : Jaeger
+est désactivé. Consulter Prometheus et Alertmanager directement, ou n8n pour les
+notifications du namespace `otel-demo`. Grafana a zéro réplica, son PVC est conservé.

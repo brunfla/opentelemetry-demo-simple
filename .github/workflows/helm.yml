@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - values.yaml
+      - deployment-profile
+      - profiles/**
+      - scripts/prepare-profile.py
+      - scripts/check-test-profile.py
       - monitoring/**
       - scripts/check-monitoring.py
       - scripts/smoke-alerting.py
@@ -13,6 +17,10 @@ on:
     branches: [main]
     paths:
       - values.yaml
+      - deployment-profile
+      - profiles/**
+      - scripts/prepare-profile.py
+      - scripts/check-test-profile.py
       - monitoring/**
       - scripts/check-monitoring.py
       - scripts/smoke-alerting.py
@@ -42,6 +50,9 @@ jobs:
     name: Validate Helm
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      matrix:
+        profile: [full, test]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -55,18 +66,28 @@ jobs:
             --repo "$CHART_REPOSITORY" \
             --version "$CHART_VERSION" \
             --untar --untardir "$RUNNER_TEMP/chart"
+      - name: Prepare profile values
+        env:
+          DEMO_PROFILE: ${{ matrix.profile }}
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          python3 scripts/prepare-profile.py --output .helm/selected-profile-values.yaml
+          python3 scripts/prepare-profile.py --profile "$DEMO_PROFILE" --output .helm/profile-values.yaml
       - name: Validate values and render manifests
         run: |
           mkdir -p .helm
           helm lint "$RUNNER_TEMP/chart/opentelemetry-demo" \
-            --values values.yaml --values monitoring/values.yaml --strict
+            --values .helm/profile-values.yaml --strict
           helm template "$RELEASE" "$RUNNER_TEMP/chart/opentelemetry-demo" \
-            --namespace "$NAMESPACE" --values values.yaml \
-            --values monitoring/values.yaml > .helm/rendered.yaml
+            --namespace "$NAMESPACE" --values .helm/profile-values.yaml > .helm/rendered.yaml
       - name: Validate alert routing and test alert behavior
+        env:
+          DEMO_PROFILE: ${{ matrix.profile }}
         run: |
-          python3 -m pip install PyYAML==6.0.3
-          python3 scripts/check-monitoring.py .helm/rendered.yaml
+          python3 scripts/check-monitoring.py .helm/rendered.yaml --profile "$DEMO_PROFILE"
+          if [[ "$DEMO_PROFILE" == test ]]; then
+            python3 scripts/check-test-profile.py .helm/rendered.yaml
+          fi
 
   deploy:
     name: Deploy to Minikube
@@ -85,6 +106,10 @@ jobs:
       - uses: azure/setup-helm@59b1c81c6280f5abebb1fb1bc585696daa7dfb42 # v5
         with:
           version: ${{ env.HELM_VERSION }}
+      - name: Prepare selected profile
+        run: |
+          python3 -c 'import yaml; assert yaml.__version__ == "6.0.3", "Install PyYAML 6.0.3 on the runner"'
+          python3 scripts/prepare-profile.py --output "$RUNNER_TEMP/profile-values.yaml"
       - name: Check cluster access
         run: |
           test -n "$KUBECONFIG" || { echo "Set the KUBECONFIG_PATH repository variable."; exit 1; }
@@ -101,5 +126,5 @@ jobs:
             --version "$CHART_VERSION" \
             --namespace "$NAMESPACE" --create-namespace \
             --kube-context "$KUBE_CONTEXT" \
-            --values values.yaml --values monitoring/values.yaml --reset-values \
+            --values "$RUNNER_TEMP/profile-values.yaml" --reset-values \
             --wait --timeout 10m --rollback-on-failure --history-max 10
