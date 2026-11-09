@@ -1,0 +1,39 @@
+Recette OpsGroupingLifecycleCheck — PASS
+Run UTC : 20261109T130623Z
+Début : 2026-11-09T13:06:24.094100Z
+Fin : 2026-11-09T13:08:05.149167Z
+
+Chaîne réelle : Alertmanager → webhook n8n → registre SQL du laboratoire.
+Route n8n-incidents ; group_by chargé = cluster, namespace, alertname, service_name ; pod exclu.
+Trois cibles synthétiques : grouping-lifecycle-a/b/c ; service_name=quote, environment=local, test=true.
+Chaque étape attend sa notification réelle et sa persistance avant la suivante. Aucun groupKey fabriqué, aucun POST direct au webhook, aucune écriture SQL directe.
+
+Étape | Membres connus | États A/B/C | Épisode | INV/demande | Jobs | Révision contexte | Réception UTC
+1 | 2 | firing,firing,absent | OPEN | 1/1 | 0 | 3 | 2026-11-09T13:06:34.19384+00:00
+2 | 2 | resolved,firing,absent | OPEN | 1/1 | 0 | 5 | 2026-11-09T13:07:04.161708+00:00
+3 | 3 | resolved,firing,firing | OPEN | 1/1 | 0 | 7 | 2026-11-09T13:07:34.162497+00:00
+4 | 3 | resolved,resolved,resolved | RESOLVED | 1/1 | 0 | 10 | 2026-11-09T13:08:04.17869+00:00
+
+Identifiants stables :
+{
+  "groups": [
+    "d45b39fe-d795-46e8-ba5a-308c69006351"
+  ],
+  "episodes": [
+    "ed3370d8-07eb-47da-8417-67de5fd54506"
+  ],
+  "investigations": [
+    "INV-a0d6736fc2654dbe9dcf7c38cd036e86"
+  ],
+  "requests": [
+    "INV-a0d6736fc2654dbe9dcf7c38cd036e86-investigate-1"
+  ]
+}
+
+Étape 2 : notification de groupe firing contenant A resolved et B firing. Épisode toujours OPEN ; resolved_at nul.
+Étape 3 : C apparaît dans une nouvelle révision de contexte avec trois membres connus ; A reste résolue. Aucun nouveau request_id ; contexte initial de la demande et context_digest inchangés.
+Étape 4 : notification resolved reçue, trois membres connus résolus, épisode RESOLVED selon la source. Les quatre réceptions et toutes les anciennes révisions de contexte sont conservées à l’identique. Les identités des membres précédents et leurs startsAt restent stables.
+4 passages du dispatcher observés pendant la recette. Aucun job correspondant dans SQLite ; demande PENDING, first_dispatch_at/job_id/lease_id nuls à chaque étape.
+Les alertes synthétiques sont toutes résolues ; les archives et la demande sont conservées. Aucun changement de configuration ou de code applicatif.
+Les webhooks sont les valeurs JSON intégrales archivées par le récepteur. JSONB ne conserve pas les octets HTTP originaux ni leur mise en forme.
+Cette recette ne valide pas la prise en compte des mises à jour par un agent en cours d’exécution, ni la qualification/résolution d’un incident métier.

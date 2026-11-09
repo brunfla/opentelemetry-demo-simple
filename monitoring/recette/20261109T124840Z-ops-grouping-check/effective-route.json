@@ -1,0 +1,61 @@
+{
+  "observed_at": "2026-11-09T12:48:41.003136Z",
+  "version": {
+    "branch": "HEAD",
+    "buildDate": "20260917-07:53:02",
+    "buildUser": "root@68a5f2da6323",
+    "goVersion": "go1.26.8",
+    "revision": "73c6bfe7393929211294c1954f30d8ed78e4d0ad",
+    "version": "0.34.1"
+  },
+  "route": {
+    "receiver": "n8n-incidents",
+    "matchers": [
+      "alertname!=\"Watchdog\"",
+      "namespace=\"otel-demo\""
+    ],
+    "continue": false,
+    "group_wait": "10s",
+    "group_interval": "30s",
+    "repeat_interval": "4h"
+  },
+  "inherited_group_by": [
+    "cluster",
+    "namespace",
+    "alertname",
+    "service_name"
+  ],
+  "root_route": {
+    "receiver": "grafana-only",
+    "group_by": [
+      "cluster",
+      "namespace",
+      "alertname",
+      "service_name"
+    ],
+    "continue": false,
+    "routes": [
+      {
+        "receiver": "watchdog",
+        "matchers": [
+          "alertname=\"Watchdog\""
+        ],
+        "continue": false
+      },
+      {
+        "receiver": "n8n-incidents",
+        "matchers": [
+          "alertname!=\"Watchdog\"",
+          "namespace=\"otel-demo\""
+        ],
+        "continue": false,
+        "group_wait": "10s",
+        "group_interval": "30s",
+        "repeat_interval": "4h"
+      }
+    ],
+    "group_wait": "30s",
+    "group_interval": "5m",
+    "repeat_interval": "4h"
+  }
+}

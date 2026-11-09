@@ -1,0 +1,75 @@
+global:
+  resolve_timeout: 5m
+  http_config:
+    follow_redirects: true
+    enable_http2: true
+  smtp_hello: localhost
+  smtp_require_tls: true
+  smtp_tls_config:
+    insecure_skip_verify: false
+  slack_app_url: https://slack.com/api/chat.postMessage
+  pagerduty_url: https://events.pagerduty.com/v2/enqueue
+  opsgenie_api_url: https://api.opsgenie.com/
+  wechat_api_url: https://qyapi.weixin.qq.com/cgi-bin/
+  victorops_api_url: https://alert.victorops.com/integrations/generic/20131114/alert/
+  telegram_api_url: https://api.telegram.org
+  webex_api_url: https://webexapis.com/v1/messages
+  rocketchat_api_url: https://open.rocket.chat/
+route:
+  receiver: grafana-only
+  group_by:
+  - cluster
+  - namespace
+  - alertname
+  - service_name
+  continue: false
+  routes:
+  - receiver: watchdog
+    matchers:
+    - alertname="Watchdog"
+    continue: false
+  - receiver: n8n-incidents
+    matchers:
+    - alertname!="Watchdog"
+    - namespace="otel-demo"
+    continue: false
+    group_wait: 10s
+    group_interval: 30s
+    repeat_interval: 4h
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+inhibit_rules:
+- source_matchers:
+  - alertname="KubeDeploymentUnavailable"
+  target_matchers:
+  - alertname="KubeDeploymentReplicasMismatch"
+  equal:
+  - cluster
+  - namespace
+  - deployment
+receivers:
+- name: grafana-only
+  labels:
+    name: grafana-only
+- name: watchdog
+  labels:
+    name: watchdog
+- name: n8n-incidents
+  labels:
+    name: n8n-incidents
+  webhook_configs:
+  - send_resolved: true
+    http_config:
+      follow_redirects: false
+      enable_http2: true
+      http_headers:
+        X-API-Key:
+          files:
+          - /etc/alertmanager/n8n/webhook-token
+    url: <secret>
+    url_file: ''
+    max_alerts: 100
+    timeout: 0s
+templates:
+- /etc/alertmanager/*.tmpl

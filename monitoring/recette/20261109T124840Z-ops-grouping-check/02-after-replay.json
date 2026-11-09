@@ -1,0 +1,104 @@
+{
+  "groups": [
+    {
+      "source": "otel-demo",
+      "group_id": "43a9250d-2661-41ec-bea2-776d1a072955",
+      "receiver": "n8n-incidents",
+      "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+      "group_labels": {
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingCheck",
+        "namespace": "otel-demo",
+        "service_name": "quote"
+      }
+    }
+  ],
+  "members": [
+    {
+      "labels": {
+        "pod": "grouping-test-a",
+        "test": "true",
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingCheck",
+        "namespace": "otel-demo",
+        "environment": "local",
+        "service_name": "quote"
+      },
+      "status": "firing",
+      "startsAt": "2026-11-09T12:48:41.373113Z",
+      "alert_key": "76ec2aacac0729b0eca762883196bd956d22fdaeb8ed14321983d3384f09e53c",
+      "episode_id": "f372b74b-bf06-4cb2-bb27-83d328f598e9"
+    },
+    {
+      "labels": {
+        "pod": "grouping-test-b",
+        "test": "true",
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingCheck",
+        "namespace": "otel-demo",
+        "environment": "local",
+        "service_name": "quote"
+      },
+      "status": "firing",
+      "startsAt": "2026-11-09T12:48:41.373113Z",
+      "alert_key": "136796c5107b48c4bd3e86fefbae653824d6c2989de9944439ead38fcfd35660",
+      "episode_id": "f372b74b-bf06-4cb2-bb27-83d328f598e9"
+    }
+  ],
+  "episodes": [
+    {
+      "state": "OPEN",
+      "group_id": "43a9250d-2661-41ec-bea2-776d1a072955",
+      "episode_id": "f372b74b-bf06-4cb2-bb27-83d328f598e9",
+      "disposition": "INVESTIGATION",
+      "incident_id": "INV-d67f4ed7a0c443ee84e1be8846a27a2e"
+    }
+  ],
+  "receipts": [
+    {
+      "status": "firing",
+      "receipt_id": "640be28d-e56d-411c-b58c-ade4651d78a2",
+      "received_at": "2026-11-09T12:48:51.512672+00:00",
+      "execution_id": "11475"
+    },
+    {
+      "status": "firing",
+      "receipt_id": "0a32eb8a-e9c2-4d02-ad30-66e756d9f143",
+      "received_at": "2026-11-09T12:48:52.563968+00:00",
+      "execution_id": "11476"
+    }
+  ],
+  "requests": [
+    {
+      "state": "PENDING",
+      "job_id": null,
+      "failures": 0,
+      "lease_id": null,
+      "request_id": "INV-d67f4ed7a0c443ee84e1be8846a27a2e-investigate-1",
+      "test_label": "true",
+      "incident_id": "INV-d67f4ed7a0c443ee84e1be8846a27a2e",
+      "first_dispatch_at": null
+    }
+  ],
+  "observed_at": "2026-11-09T12:48:52.64992+00:00",
+  "investigations": [
+    {
+      "status": "INVESTIGATION_PENDING",
+      "incident_id": "INV-d67f4ed7a0c443ee84e1be8846a27a2e",
+      "investigation_id": "INV-d67f4ed7a0c443ee84e1be8846a27a2e"
+    }
+  ],
+  "worker": {
+    "database": "/work/jobs/jobs.sqlite3",
+    "jobs": []
+  },
+  "counts": {
+    "groups": 1,
+    "episodes": 1,
+    "members": 2,
+    "investigations": 1,
+    "requests": 1,
+    "receipts": 2,
+    "agent_jobs": 0
+  }
+}

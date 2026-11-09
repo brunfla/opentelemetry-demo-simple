@@ -1,0 +1,36 @@
+[
+  {
+    "labels": {
+      "alertname": "OpsGroupingLifecycleCheck",
+      "cluster": "otel-demo",
+      "namespace": "otel-demo",
+      "service_name": "quote",
+      "environment": "local",
+      "test": "true",
+      "pod": "grouping-lifecycle-b"
+    },
+    "startsAt": "2026-11-09T13:06:24.094094Z",
+    "endsAt": "2026-11-09T13:16:24.094096Z",
+    "annotations": {
+      "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+      "recipe_run": "20261109T130623Z"
+    }
+  },
+  {
+    "labels": {
+      "alertname": "OpsGroupingLifecycleCheck",
+      "cluster": "otel-demo",
+      "namespace": "otel-demo",
+      "service_name": "quote",
+      "environment": "local",
+      "test": "true",
+      "pod": "grouping-lifecycle-c"
+    },
+    "startsAt": "2026-11-09T13:07:04.435017Z",
+    "endsAt": "2026-11-09T13:17:04.435031Z",
+    "annotations": {
+      "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+      "recipe_run": "20261109T130623Z"
+    }
+  }
+]

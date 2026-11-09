@@ -1,0 +1,47 @@
+Recette OpsGroupingCheck — PASS
+Run UTC : 20261109T124840Z
+Début injection : 2026-11-09T12:48:41.373113Z
+Première réception SQL : 2026-11-09T12:48:51.512672+00:00
+Rejeu : 2026-11-09T12:48:52.500602Z, HTTP 202
+Fin des vérifications : 2026-11-09T12:50:22.363534Z
+
+Route réellement chargée : n8n-incidents ; group_by hérité = cluster, namespace, alertname, service_name.
+pod est exclu du grouping ; environment=local et test=true conservés sur les deux membres.
+Une seule requête POST à Alertmanager contient les deux alertes ; group_wait=10s.
+Aucun groupKey construit par le test : valeur issue de la notification réellement archivée.
+
+Objet | Avant injection | Avant rejeu | Après rejeu | Après 65 s de dispatch
+groups | 0 | 1 | 1 | 1
+episodes | 0 | 1 | 1 | 1
+members | 0 | 2 | 2 | 2
+investigations | 0 | 1 | 1 | 1
+requests | 0 | 1 | 1 | 1
+receipts | 0 | 1 | 2 | 2
+agent_jobs | 0 | 0 | 0 | 0
+
+Identifiants stables :
+{
+  "groups": [
+    "43a9250d-2661-41ec-bea2-776d1a072955"
+  ],
+  "episodes": [
+    "f372b74b-bf06-4cb2-bb27-83d328f598e9"
+  ],
+  "members": [
+    "136796c5107b48c4bd3e86fefbae653824d6c2989de9944439ead38fcfd35660",
+    "76ec2aacac0729b0eca762883196bd956d22fdaeb8ed14321983d3384f09e53c"
+  ],
+  "investigations": [
+    "INV-d67f4ed7a0c443ee84e1be8846a27a2e"
+  ],
+  "requests": [
+    "INV-d67f4ed7a0c443ee84e1be8846a27a2e-investigate-1"
+  ]
+}
+
+3 passages réussis du dispatcher observés après rejeu. Demande PENDING, first_dispatch_at/job_id/lease_id nuls ; aucun job dans la base SQLite du worker pour cette demande ou investigation.
+Le JSON intégral reçu et rejoué est identique en valeurs. La base JSONB ne conserve pas les octets HTTP originaux ni leur mise en forme ; aucune égalité octet pour octet avec le corps émis n’est revendiquée.
+
+Nettoyage : résolution explicite des deux alertes synthétiques via Alertmanager. Épisode RESOLVED ; mêmes identifiants et compteurs métier. Une troisième réception, de résolution, est archivée après la preuve de rejeu. L’investigation reste conservée ; aucune clôture métier déduite.
+Aucune route, règle, migration, permission ou archive existante modifiée. Aucun secret ni en-tête d’authentification dans ce dossier.
+Les autres cas du sprint (troncature, états mixtes, reprise HTTP, HA, redéploiement) ne sont pas couverts par cette recette.

@@ -1,0 +1,36 @@
+[
+  {
+    "labels": {
+      "alertname": "OpsGroupingCheck",
+      "cluster": "otel-demo",
+      "namespace": "otel-demo",
+      "service_name": "quote",
+      "environment": "local",
+      "test": "true",
+      "pod": "grouping-test-a"
+    },
+    "startsAt": "2026-11-09T12:48:41.373113Z",
+    "endsAt": "2026-11-09T12:53:41.373126Z",
+    "annotations": {
+      "summary": "Synthetic grouping transport check; model dispatch excluded",
+      "recipe_run": "20261109T124840Z"
+    }
+  },
+  {
+    "labels": {
+      "alertname": "OpsGroupingCheck",
+      "cluster": "otel-demo",
+      "namespace": "otel-demo",
+      "service_name": "quote",
+      "environment": "local",
+      "test": "true",
+      "pod": "grouping-test-b"
+    },
+    "startsAt": "2026-11-09T12:48:41.373113Z",
+    "endsAt": "2026-11-09T12:53:41.373126Z",
+    "annotations": {
+      "summary": "Synthetic grouping transport check; model dispatch excluded",
+      "recipe_run": "20261109T124840Z"
+    }
+  }
+]

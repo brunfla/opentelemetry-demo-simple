@@ -25,15 +25,14 @@ chaque changement ; le runner déploie uniquement celui choisi dans Git.
 En mode `test`, seuls `quote` et une boucle BusyBox envoyant un POST toutes les
 5 secondes restent côté application. Le collector conserve la conversion des
 traces en métriques et les métriques kubelet. Prometheus, Alertmanager et
-kube-state-metrics restent actifs. Grafana est réduit à zéro réplica, son PVC
-est conservé ; Jaeger et les autres composants de la boutique sont désactivés.
+kube-state-metrics et Grafana restent actifs. Grafana utilise un réplica et son PVC
+existant ; Jaeger et les autres composants de la boutique sont désactivés.
 Les traces détaillées ne sont plus stockées, mais les alertes de latence et
 d’erreurs continuent à fonctionner à partir des métriques de spans.
 
-Les limites mémoire des conteneurs actifs totalisent **992 Mio** sur un nœud,
-auxquels s’ajoutent Kubernetes, containerd et Docker. L’objectif de consommation
-totale est **environ 1 à 2 Gio**, à mesurer après déploiement ; 1 Gio pour tout
-Minikube est trop serré. Les limites ne sont pas une mesure de consommation et
+Les limites mémoire des conteneurs actifs totalisent **2528 Mio** sur un nœud,
+Grafana inclus, auxquels s’ajoutent Kubernetes, containerd et Docker. La consommation
+réelle est à mesurer après déploiement. Les limites ne sont pas une mesure de consommation et
 ne plafonnent pas la mémoire du nœud. n8n, ses agents et les autres conteneurs
 Docker de la machine ne sont pas inclus dans ce budget. La rétention Prometheus
 passe à 6 heures / 512 Mo : les métriques plus anciennes seront purgées. Les PVC
@@ -49,11 +48,17 @@ Alertmanager avec :
 kubectl --context otel-demo -n otel-demo port-forward service/alertmanager 9093:9093
 ```
 
-Puis ouvrir `http://localhost:9093`. La boutique et Grafana sont indisponibles
-dans ce mode. Pour un test de déclenchement/résolution après déploiement :
+Puis ouvrir `http://localhost:9093`. Pour Grafana :
 
 ```bash
-python3 scripts/smoke-alerting.py --skip-grafana
+kubectl --context otel-demo -n otel-demo port-forward service/grafana 3000:80
+```
+
+Ouvrir `http://localhost:3000/grafana/`. La boutique reste indisponible dans ce
+mode. Pour un test de déclenchement/résolution après déploiement :
+
+```bash
+python3 scripts/smoke-alerting.py
 ```
 
 Ce test envoie de vraies notifications à n8n. Pour tester sans notification,

@@ -1,0 +1,22 @@
+{
+  "groups": [],
+  "members": [],
+  "episodes": [],
+  "receipts": [],
+  "requests": [],
+  "observed_at": "2026-11-09T12:48:41.251503+00:00",
+  "investigations": [],
+  "worker": {
+    "database": "/work/jobs/jobs.sqlite3",
+    "jobs": []
+  },
+  "counts": {
+    "groups": 0,
+    "episodes": 0,
+    "members": 0,
+    "investigations": 0,
+    "requests": 0,
+    "receipts": 0,
+    "agent_jobs": 0
+  }
+}

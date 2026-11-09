@@ -23,12 +23,12 @@ def main():
     docs = [d for d in yaml.safe_load_all("\n".join(l.rstrip() for l in args.manifest.read_text().splitlines())) if d]
     workloads = {d["metadata"]["name"]: d for d in docs if d["kind"] in {"Deployment", "DaemonSet", "StatefulSet"}}
     active = {n: d for n, d in workloads.items() if d["spec"].get("replicas", 1) > 0}
-    assert set(active) == {"quote", "load-generator", "otel-collector-agent", "prometheus", "alertmanager", "kube-state-metrics"}, set(active)
-    assert workloads["grafana"]["spec"]["replicas"] == 0
+    assert set(active) == {"quote", "load-generator", "otel-collector-agent", "prometheus", "alertmanager", "kube-state-metrics", "grafana"}, set(active)
+    assert workloads["grafana"]["spec"]["replicas"] == 1
     # One Minikube node; every active container must have an explicit RAM ceiling.
     total = sum(memory_mib(c["resources"]["limits"]["memory"]) * d["spec"].get("replicas", 1)
                 for d in active.values() for c in d["spec"]["template"]["spec"]["containers"])
-    assert total <= 1024, f"Workloads exceed 1 GiB of memory limits: {total} MiB"
+    assert total <= 3072, f"Workloads including Grafana exceed 3 GiB of memory limits: {total} MiB"
     claims = {d["metadata"]["name"]: d for d in docs if d["kind"] == "PersistentVolumeClaim"}
     assert claims["grafana"]["spec"]["resources"]["requests"]["storage"] == "1Gi"
     assert claims["prometheus"]["spec"]["resources"]["requests"]["storage"] == "4Gi"
@@ -72,7 +72,7 @@ def main():
         "-v", f"{output}:/var/run/secrets/kubernetes.io/serviceaccount:ro",
         collector_image, "validate", "--config=/etc/collector.yaml",
     ], check=True)
-    print(f"PASS: 1 app + 1 traffic loop, 4 monitoring workloads, {total:g} MiB aggregate limits; PVCs retained.")
+    print(f"PASS: 1 app + 1 traffic loop, 5 monitoring workloads, {total:g} MiB aggregate limits; PVCs retained.")
 
 
 if __name__ == "__main__":

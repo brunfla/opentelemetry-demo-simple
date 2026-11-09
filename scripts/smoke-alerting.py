@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--context", default="otel-demo")
     parser.add_argument("--namespace", default="otel-demo", choices=["otel-demo"])
     parser.add_argument("--timeout", type=int, default=480, help="Timeout for each phase in seconds")
-    parser.add_argument("--skip-grafana", action="store_true", help="Test profile: Grafana has zero replicas")
+    parser.add_argument("--skip-grafana", action="store_true", help="Skip Grafana checks when it has been stopped explicitly")
     args = parser.parse_args()
     kubectl = ["kubectl", "--context", args.context, "--request-timeout=15s", "-n", args.namespace]
     name = "alerting-smoke-" + uuid.uuid4().hex[:8]

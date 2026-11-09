@@ -1,0 +1,103 @@
+{
+  "result": "PASS",
+  "started_at": "2026-11-09T13:06:24.094100Z",
+  "finished_at": "2026-11-09T13:08:05.149000Z",
+  "identities": {
+    "groups": [
+      "d45b39fe-d795-46e8-ba5a-308c69006351"
+    ],
+    "episodes": [
+      "ed3370d8-07eb-47da-8417-67de5fd54506"
+    ],
+    "investigations": [
+      "INV-a0d6736fc2654dbe9dcf7c38cd036e86"
+    ],
+    "requests": [
+      "INV-a0d6736fc2654dbe9dcf7c38cd036e86-investigate-1"
+    ]
+  },
+  "stages": [
+    {
+      "step": 1,
+      "received_at": "2026-11-09T13:06:34.19384+00:00",
+      "counts": {
+        "groups": 1,
+        "episodes": 1,
+        "members": 2,
+        "investigations": 1,
+        "requests": 1,
+        "receipts": 1,
+        "agent_jobs": 0
+      },
+      "states": {
+        "grouping-lifecycle-a": "firing",
+        "grouping-lifecycle-b": "firing"
+      },
+      "episode_state": "OPEN",
+      "context_revision": 3
+    },
+    {
+      "step": 2,
+      "received_at": "2026-11-09T13:07:04.161708+00:00",
+      "counts": {
+        "groups": 1,
+        "episodes": 1,
+        "members": 2,
+        "investigations": 1,
+        "requests": 1,
+        "receipts": 2,
+        "agent_jobs": 0
+      },
+      "states": {
+        "grouping-lifecycle-a": "resolved",
+        "grouping-lifecycle-b": "firing"
+      },
+      "episode_state": "OPEN",
+      "context_revision": 5
+    },
+    {
+      "step": 3,
+      "received_at": "2026-11-09T13:07:34.162497+00:00",
+      "counts": {
+        "groups": 1,
+        "episodes": 1,
+        "members": 3,
+        "investigations": 1,
+        "requests": 1,
+        "receipts": 3,
+        "agent_jobs": 0
+      },
+      "states": {
+        "grouping-lifecycle-a": "resolved",
+        "grouping-lifecycle-b": "firing",
+        "grouping-lifecycle-c": "firing"
+      },
+      "episode_state": "OPEN",
+      "context_revision": 7
+    },
+    {
+      "step": 4,
+      "received_at": "2026-11-09T13:08:04.17869+00:00",
+      "counts": {
+        "groups": 1,
+        "episodes": 1,
+        "members": 3,
+        "investigations": 1,
+        "requests": 1,
+        "receipts": 4,
+        "agent_jobs": 0
+      },
+      "states": {
+        "grouping-lifecycle-b": "resolved",
+        "grouping-lifecycle-c": "resolved",
+        "grouping-lifecycle-a": "resolved"
+      },
+      "episode_state": "RESOLVED",
+      "context_revision": 10
+    }
+  ],
+  "dispatcher_executions": 4,
+  "initial_request_unchanged": true,
+  "archived_receipts_and_contexts_preserved": true,
+  "running_agent_update_tested": false
+}

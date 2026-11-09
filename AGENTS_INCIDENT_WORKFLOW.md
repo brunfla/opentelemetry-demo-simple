@@ -29,8 +29,8 @@ Ne pas supposer que `localhost:9090` depuis un agent distant désigne Prometheus
 Utiliser les outils et accès fournis par l’orchestrateur.
 
 Le profil `test` garde un service `quote`, une boucle de trafic BusyBox et les
-workloads collector, Prometheus, Alertmanager et kube-state-metrics. Grafana a
-zéro réplica et Jaeger est désactivé ; cette situation est attendue. Les traces
+workloads collector, Prometheus, Alertmanager, kube-state-metrics et Grafana.
+Grafana possède un réplica ; Jaeger est désactivé. Les traces
 sont converties en métriques sans stockage de leurs détails. En profil `full`,
 la boutique et ses dépendances sont réactivées.
 
@@ -106,7 +106,7 @@ une dépendance en erreur peut être contournée par l’application.
 | `kube-state-metrics` | Perte de visibilité sur l’état Kubernetes et de certaines alertes ; la santé des applications reste à vérifier. | P2 ; augmenter la priorité si cette perte masque un incident en cours. |
 | Nœud Minikube, Docker/containerd, réseau/DNS et composants `kube-system` | Risque commun à tous les services et à la supervision sur ce cluster à un seul nœud. | P1 si indisponibilité globale ; P2 pour saturation ou dégradation sans blocage confirmé. |
 | Stockage et PVC | Démarrage bloqué, écritures impossibles ou perte d’historique/état selon le consommateur. | P2 ; P1 si fonction essentielle bloquée ou perte de données imminente étayée. Le PVC Grafana conservé en `test` n’est pas une urgence à lui seul. |
-| Grafana, Jaeger en `full` | Tableaux de bord ou traces détaillées indisponibles, diagnostic ralenti. | P3 si les autres accès suffisent ; P2 si la validation demandée en dépend. En `test`, leur arrêt est attendu : P4. |
+| Grafana ; Jaeger en `full` | Tableaux de bord ou traces détaillées indisponibles, diagnostic ralenti. | P3 si les autres accès suffisent ; P2 si la validation demandée en dépend. En `test`, seul l’arrêt de Jaeger est attendu : P4. |
 | Autres outils de diagnostic, dont `opamp-server`, `firepit` et le profiler si actifs | Fonction de diagnostic ou de gestion de télémétrie concernée ; vérifier ses dépendances et l’objectif de la session. | P3 si isolée ; P2 si nécessaire à la validation. |
 | GitHub Actions, runner local, Helm | Déploiement ou retour à une version saine bloqué ; état partiel possible après échec. | P3 si le service courant est sain ; P2 si un déploiement attendu est bloqué ; P1 si cela empêche le rétablissement d’un incident P1. |
 | Composants désactivés par le profil effectif | Aucune fonction attendue pour la session. Certains restent désactivés même en `full` ; vérifier les values. | P4 pour leur absence attendue ; investiguer si le déploiement réel diverge de l’intention. |

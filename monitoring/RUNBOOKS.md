@@ -376,4 +376,4 @@ surveillent uniquement `quote`. Les règles d’erreur et de latence s’appliqu
 est arrêté ; une forte baisse de trafic est donc possible sans perte totale
 de télémétrie. Les traces sont converties en métriques puis abandonnées : Jaeger
 est désactivé. Consulter Prometheus et Alertmanager directement, ou n8n pour les
-notifications du namespace `otel-demo`. Grafana a zéro réplica, son PVC est conservé.
+notifications du namespace `otel-demo`. Grafana reste actif avec un réplica et son PVC conservé.

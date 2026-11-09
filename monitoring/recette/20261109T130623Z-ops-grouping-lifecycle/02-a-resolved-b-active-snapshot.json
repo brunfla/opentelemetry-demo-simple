@@ -1,0 +1,1062 @@
+{
+  "groups": [
+    {
+      "source": "otel-demo",
+      "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+      "receiver": "n8n-incidents",
+      "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+      "group_labels": {
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingLifecycleCheck",
+        "namespace": "otel-demo",
+        "service_name": "quote"
+      }
+    }
+  ],
+  "members": [
+    {
+      "endsAt": "2026-11-09T13:06:35.275774Z",
+      "labels": {
+        "pod": "grouping-lifecycle-a",
+        "test": "true",
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingLifecycleCheck",
+        "namespace": "otel-demo",
+        "environment": "local",
+        "service_name": "quote"
+      },
+      "status": "resolved",
+      "startsAt": "2026-11-09T13:06:24.094061Z",
+      "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a",
+      "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506"
+    },
+    {
+      "endsAt": "0001-01-01T00:00:00Z",
+      "labels": {
+        "pod": "grouping-lifecycle-b",
+        "test": "true",
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingLifecycleCheck",
+        "namespace": "otel-demo",
+        "environment": "local",
+        "service_name": "quote"
+      },
+      "status": "firing",
+      "startsAt": "2026-11-09T13:06:24.094094Z",
+      "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a",
+      "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506"
+    }
+  ],
+  "contexts": [
+    {
+      "document": {
+        "scope": {
+          "cluster": "otel-demo",
+          "service": "quote",
+          "namespace": "otel-demo",
+          "environment": "lab"
+        },
+        "origin": {
+          "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "revision": 1,
+        "context_id": "CTX-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "resolution": "SERVICE_UNVERIFIED",
+        "event_count": 1,
+        "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "recorded_at": "2026-11-09T13:06:34.201168+00:00",
+        "alert_status": "firing",
+        "latest_alert": {
+          "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "recent_events": [
+          {
+            "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          }
+        ],
+        "policy_version": "incident-context-v1",
+        "schema_version": 1,
+        "scope_provenance": {
+          "cluster": "intake-configuration",
+          "service": "alert-declared",
+          "namespace": "intake-configuration",
+          "environment": "intake-configuration"
+        },
+        "alertmanager_group": null
+      },
+      "revision": 1,
+      "source_key": "alert:b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "recorded_at": "2026-11-09T13:06:34.201217+00:00"
+    },
+    {
+      "document": {
+        "scope": {
+          "cluster": "otel-demo",
+          "service": "quote",
+          "namespace": "otel-demo",
+          "environment": "lab"
+        },
+        "origin": {
+          "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "revision": 2,
+        "context_id": "CTX-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "resolution": "SERVICE_UNVERIFIED",
+        "event_count": 2,
+        "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "recorded_at": "2026-11-09T13:06:34.202399+00:00",
+        "alert_status": "firing",
+        "latest_alert": {
+          "ref": "c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "recent_events": [
+          {
+            "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "ref": "c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          }
+        ],
+        "policy_version": "incident-context-v1",
+        "schema_version": 1,
+        "scope_provenance": {
+          "cluster": "intake-configuration",
+          "service": "alert-declared",
+          "namespace": "intake-configuration",
+          "environment": "intake-configuration"
+        },
+        "alertmanager_group": null
+      },
+      "revision": 2,
+      "source_key": "alert:c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "recorded_at": "2026-11-09T13:06:34.202442+00:00"
+    },
+    {
+      "document": {
+        "scope": {
+          "cluster": "otel-demo",
+          "service": "quote",
+          "namespace": "otel-demo",
+          "environment": "lab"
+        },
+        "origin": {
+          "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "revision": 3,
+        "context_id": "CTX-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "resolution": "SERVICE_UNVERIFIED",
+        "event_count": 3,
+        "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "recorded_at": "2026-11-09T13:06:34.203172+00:00",
+        "alert_status": "firing",
+        "latest_alert": {
+          "ref": "c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "recent_events": [
+          {
+            "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "ref": "c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "kind": "alertmanager_group",
+            "state": "OPEN",
+            "reason": null,
+            "members": [
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-b",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094094Z",
+                "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+              },
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-a",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094061Z",
+                "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+              }
+            ],
+            "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+            "receiver": "n8n-incidents",
+            "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+            "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+            "incomplete": false,
+            "disposition": "INVESTIGATION",
+            "received_at": "2026-11-09T13:06:34.19384+00:00",
+            "group_labels": {
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "service_name": "quote"
+            },
+            "member_count": 2,
+            "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+          }
+        ],
+        "policy_version": "incident-context-v1",
+        "schema_version": 1,
+        "scope_provenance": {
+          "cluster": "intake-configuration",
+          "service": "alert-declared",
+          "namespace": "intake-configuration",
+          "environment": "intake-configuration"
+        },
+        "alertmanager_group": {
+          "kind": "alertmanager_group",
+          "state": "OPEN",
+          "reason": null,
+          "members": [
+            {
+              "labels": {
+                "pod": "grouping-lifecycle-b",
+                "test": "true",
+                "cluster": "otel-demo",
+                "alertname": "OpsGroupingLifecycleCheck",
+                "namespace": "otel-demo",
+                "environment": "local",
+                "service_name": "quote"
+              },
+              "status": "firing",
+              "startsAt": "2026-11-09T13:06:24.094094Z",
+              "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+            },
+            {
+              "labels": {
+                "pod": "grouping-lifecycle-a",
+                "test": "true",
+                "cluster": "otel-demo",
+                "alertname": "OpsGroupingLifecycleCheck",
+                "namespace": "otel-demo",
+                "environment": "local",
+                "service_name": "quote"
+              },
+              "status": "firing",
+              "startsAt": "2026-11-09T13:06:24.094061Z",
+              "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+            }
+          ],
+          "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+          "receiver": "n8n-incidents",
+          "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+          "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+          "incomplete": false,
+          "disposition": "INVESTIGATION",
+          "received_at": "2026-11-09T13:06:34.19384+00:00",
+          "group_labels": {
+            "cluster": "otel-demo",
+            "alertname": "OpsGroupingLifecycleCheck",
+            "namespace": "otel-demo",
+            "service_name": "quote"
+          },
+          "member_count": 2,
+          "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+        }
+      },
+      "revision": 3,
+      "source_key": "alertmanager:fb974d31066b36e81829c1a9e80ae31db1c040ded1f36612fae4dea3745c54fc",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "recorded_at": "2026-11-09T13:06:34.203208+00:00"
+    },
+    {
+      "document": {
+        "scope": {
+          "cluster": "otel-demo",
+          "service": "quote",
+          "namespace": "otel-demo",
+          "environment": "lab"
+        },
+        "origin": {
+          "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "revision": 4,
+        "context_id": "CTX-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "resolution": "SERVICE_UNVERIFIED",
+        "event_count": 4,
+        "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "recorded_at": "2026-11-09T13:07:04.167672+00:00",
+        "alert_status": "firing",
+        "latest_alert": {
+          "ref": "50040ad4-f878-4629-a2ea-525cd2b22271",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "resolved",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:07:04.161708+00:00"
+        },
+        "recent_events": [
+          {
+            "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "ref": "c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "kind": "alertmanager_group",
+            "state": "OPEN",
+            "reason": null,
+            "members": [
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-b",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094094Z",
+                "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+              },
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-a",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094061Z",
+                "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+              }
+            ],
+            "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+            "receiver": "n8n-incidents",
+            "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+            "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+            "incomplete": false,
+            "disposition": "INVESTIGATION",
+            "received_at": "2026-11-09T13:06:34.19384+00:00",
+            "group_labels": {
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "service_name": "quote"
+            },
+            "member_count": 2,
+            "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+          },
+          {
+            "ref": "50040ad4-f878-4629-a2ea-525cd2b22271",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "resolved",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:07:04.161708+00:00"
+          }
+        ],
+        "policy_version": "incident-context-v1",
+        "schema_version": 1,
+        "scope_provenance": {
+          "cluster": "intake-configuration",
+          "service": "alert-declared",
+          "namespace": "intake-configuration",
+          "environment": "intake-configuration"
+        },
+        "alertmanager_group": {
+          "kind": "alertmanager_group",
+          "state": "OPEN",
+          "reason": null,
+          "members": [
+            {
+              "labels": {
+                "pod": "grouping-lifecycle-b",
+                "test": "true",
+                "cluster": "otel-demo",
+                "alertname": "OpsGroupingLifecycleCheck",
+                "namespace": "otel-demo",
+                "environment": "local",
+                "service_name": "quote"
+              },
+              "status": "firing",
+              "startsAt": "2026-11-09T13:06:24.094094Z",
+              "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+            },
+            {
+              "labels": {
+                "pod": "grouping-lifecycle-a",
+                "test": "true",
+                "cluster": "otel-demo",
+                "alertname": "OpsGroupingLifecycleCheck",
+                "namespace": "otel-demo",
+                "environment": "local",
+                "service_name": "quote"
+              },
+              "status": "firing",
+              "startsAt": "2026-11-09T13:06:24.094061Z",
+              "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+            }
+          ],
+          "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+          "receiver": "n8n-incidents",
+          "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+          "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+          "incomplete": false,
+          "disposition": "INVESTIGATION",
+          "received_at": "2026-11-09T13:06:34.19384+00:00",
+          "group_labels": {
+            "cluster": "otel-demo",
+            "alertname": "OpsGroupingLifecycleCheck",
+            "namespace": "otel-demo",
+            "service_name": "quote"
+          },
+          "member_count": 2,
+          "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+        }
+      },
+      "revision": 4,
+      "source_key": "alert:50040ad4-f878-4629-a2ea-525cd2b22271",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "recorded_at": "2026-11-09T13:07:04.167734+00:00"
+    },
+    {
+      "document": {
+        "scope": {
+          "cluster": "otel-demo",
+          "service": "quote",
+          "namespace": "otel-demo",
+          "environment": "lab"
+        },
+        "origin": {
+          "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "firing",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:06:34.19384+00:00"
+        },
+        "revision": 5,
+        "context_id": "CTX-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "resolution": "SERVICE_UNVERIFIED",
+        "event_count": 5,
+        "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+        "recorded_at": "2026-11-09T13:07:04.168751+00:00",
+        "alert_status": "firing",
+        "latest_alert": {
+          "ref": "50040ad4-f878-4629-a2ea-525cd2b22271",
+          "kind": "alert",
+          "source": "otel-demo",
+          "status": "resolved",
+          "declared": {
+            "cluster": "otel-demo",
+            "service": "quote",
+            "namespace": "otel-demo",
+            "environment": "local",
+            "environment_truncated": false
+          },
+          "received_at": "2026-11-09T13:07:04.161708+00:00"
+        },
+        "recent_events": [
+          {
+            "ref": "b600c325-deb2-4b8b-99a4-45a9c7c316f8",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "ref": "c128bd11-bd7c-4651-b2e7-ec2d418da05f",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "firing",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:06:34.19384+00:00"
+          },
+          {
+            "kind": "alertmanager_group",
+            "state": "OPEN",
+            "reason": null,
+            "members": [
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-b",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094094Z",
+                "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+              },
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-a",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094061Z",
+                "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+              }
+            ],
+            "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+            "receiver": "n8n-incidents",
+            "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+            "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+            "incomplete": false,
+            "disposition": "INVESTIGATION",
+            "received_at": "2026-11-09T13:06:34.19384+00:00",
+            "group_labels": {
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "service_name": "quote"
+            },
+            "member_count": 2,
+            "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+          },
+          {
+            "ref": "50040ad4-f878-4629-a2ea-525cd2b22271",
+            "kind": "alert",
+            "source": "otel-demo",
+            "status": "resolved",
+            "declared": {
+              "cluster": "otel-demo",
+              "service": "quote",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "environment_truncated": false
+            },
+            "received_at": "2026-11-09T13:07:04.161708+00:00"
+          },
+          {
+            "kind": "alertmanager_group",
+            "state": "OPEN",
+            "reason": null,
+            "members": [
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-b",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "firing",
+                "startsAt": "2026-11-09T13:06:24.094094Z",
+                "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+              },
+              {
+                "labels": {
+                  "pod": "grouping-lifecycle-a",
+                  "test": "true",
+                  "cluster": "otel-demo",
+                  "alertname": "OpsGroupingLifecycleCheck",
+                  "namespace": "otel-demo",
+                  "environment": "local",
+                  "service_name": "quote"
+                },
+                "status": "resolved",
+                "startsAt": "2026-11-09T13:06:24.094061Z",
+                "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+              }
+            ],
+            "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+            "receiver": "n8n-incidents",
+            "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+            "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+            "incomplete": false,
+            "disposition": "INVESTIGATION",
+            "received_at": "2026-11-09T13:07:04.161708+00:00",
+            "group_labels": {
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "service_name": "quote"
+            },
+            "member_count": 2,
+            "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+          }
+        ],
+        "policy_version": "incident-context-v1",
+        "schema_version": 1,
+        "scope_provenance": {
+          "cluster": "intake-configuration",
+          "service": "alert-declared",
+          "namespace": "intake-configuration",
+          "environment": "intake-configuration"
+        },
+        "alertmanager_group": {
+          "kind": "alertmanager_group",
+          "state": "OPEN",
+          "reason": null,
+          "members": [
+            {
+              "labels": {
+                "pod": "grouping-lifecycle-b",
+                "test": "true",
+                "cluster": "otel-demo",
+                "alertname": "OpsGroupingLifecycleCheck",
+                "namespace": "otel-demo",
+                "environment": "local",
+                "service_name": "quote"
+              },
+              "status": "firing",
+              "startsAt": "2026-11-09T13:06:24.094094Z",
+              "alert_key": "02d57583ff4c414e1050f7fb923846a33e3313beeb79617f0632d43e9a4fa84a"
+            },
+            {
+              "labels": {
+                "pod": "grouping-lifecycle-a",
+                "test": "true",
+                "cluster": "otel-demo",
+                "alertname": "OpsGroupingLifecycleCheck",
+                "namespace": "otel-demo",
+                "environment": "local",
+                "service_name": "quote"
+              },
+              "status": "resolved",
+              "startsAt": "2026-11-09T13:06:24.094061Z",
+              "alert_key": "a27dafea45f6e400297e8a5d6d4dbe9e3d4742b247dd9fa3a3d24f87183ff71a"
+            }
+          ],
+          "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+          "receiver": "n8n-incidents",
+          "group_key": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+          "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+          "incomplete": false,
+          "disposition": "INVESTIGATION",
+          "received_at": "2026-11-09T13:07:04.161708+00:00",
+          "group_labels": {
+            "cluster": "otel-demo",
+            "alertname": "OpsGroupingLifecycleCheck",
+            "namespace": "otel-demo",
+            "service_name": "quote"
+          },
+          "member_count": 2,
+          "scope_policy": "The investigation service and tool permissions are fixed; new members do not expand them."
+        }
+      },
+      "revision": 5,
+      "source_key": "alertmanager:068e474cc3dbce2f3a556892bafa0bd22aae21c822232515450a91b6ea077b94",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "recorded_at": "2026-11-09T13:07:04.168791+00:00"
+    }
+  ],
+  "episodes": [
+    {
+      "state": "OPEN",
+      "group_id": "d45b39fe-d795-46e8-ba5a-308c69006351",
+      "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+      "disposition": "INVESTIGATION",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "resolved_at": null
+    }
+  ],
+  "receipts": [
+    {
+      "status": "firing",
+      "payload": {
+        "alerts": [
+          {
+            "endsAt": "0001-01-01T00:00:00Z",
+            "labels": {
+              "pod": "grouping-lifecycle-a",
+              "test": "true",
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "service_name": "quote"
+            },
+            "status": "firing",
+            "startsAt": "2026-11-09T13:06:24.094061Z",
+            "annotations": {
+              "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+              "recipe_run": "20261109T130623Z"
+            },
+            "fingerprint": "a41e09e9022cd3ce",
+            "generatorURL": ""
+          },
+          {
+            "endsAt": "0001-01-01T00:00:00Z",
+            "labels": {
+              "pod": "grouping-lifecycle-b",
+              "test": "true",
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "service_name": "quote"
+            },
+            "status": "firing",
+            "startsAt": "2026-11-09T13:06:24.094094Z",
+            "annotations": {
+              "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+              "recipe_run": "20261109T130623Z"
+            },
+            "fingerprint": "52181e6ad5de5e2b",
+            "generatorURL": ""
+          }
+        ],
+        "status": "firing",
+        "version": "4",
+        "groupKey": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+        "receiver": "n8n-incidents",
+        "externalURL": "http://alertmanager-0:9093",
+        "groupLabels": {
+          "cluster": "otel-demo",
+          "alertname": "OpsGroupingLifecycleCheck",
+          "namespace": "otel-demo",
+          "service_name": "quote"
+        },
+        "routeLabels": {},
+        "commonLabels": {
+          "test": "true",
+          "cluster": "otel-demo",
+          "alertname": "OpsGroupingLifecycleCheck",
+          "namespace": "otel-demo",
+          "environment": "local",
+          "service_name": "quote"
+        },
+        "truncatedAlerts": 0,
+        "commonAnnotations": {
+          "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+          "recipe_run": "20261109T130623Z"
+        },
+        "notification_reason": "first notification"
+      },
+      "receipt_id": "e805a128-8291-4480-acee-32f03db8ccd0",
+      "received_at": "2026-11-09T13:06:34.19384+00:00",
+      "execution_id": "11550"
+    },
+    {
+      "status": "firing",
+      "payload": {
+        "alerts": [
+          {
+            "endsAt": "2026-11-09T13:06:35.275774Z",
+            "labels": {
+              "pod": "grouping-lifecycle-a",
+              "test": "true",
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "service_name": "quote"
+            },
+            "status": "resolved",
+            "startsAt": "2026-11-09T13:06:24.094061Z",
+            "annotations": {
+              "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+              "recipe_run": "20261109T130623Z"
+            },
+            "fingerprint": "a41e09e9022cd3ce",
+            "generatorURL": ""
+          },
+          {
+            "endsAt": "0001-01-01T00:00:00Z",
+            "labels": {
+              "pod": "grouping-lifecycle-b",
+              "test": "true",
+              "cluster": "otel-demo",
+              "alertname": "OpsGroupingLifecycleCheck",
+              "namespace": "otel-demo",
+              "environment": "local",
+              "service_name": "quote"
+            },
+            "status": "firing",
+            "startsAt": "2026-11-09T13:06:24.094094Z",
+            "annotations": {
+              "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+              "recipe_run": "20261109T130623Z"
+            },
+            "fingerprint": "52181e6ad5de5e2b",
+            "generatorURL": ""
+          }
+        ],
+        "status": "firing",
+        "version": "4",
+        "groupKey": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+        "receiver": "n8n-incidents",
+        "externalURL": "http://alertmanager-0:9093",
+        "groupLabels": {
+          "cluster": "otel-demo",
+          "alertname": "OpsGroupingLifecycleCheck",
+          "namespace": "otel-demo",
+          "service_name": "quote"
+        },
+        "routeLabels": {},
+        "commonLabels": {
+          "test": "true",
+          "cluster": "otel-demo",
+          "alertname": "OpsGroupingLifecycleCheck",
+          "namespace": "otel-demo",
+          "environment": "local",
+          "service_name": "quote"
+        },
+        "truncatedAlerts": 0,
+        "commonAnnotations": {
+          "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+          "recipe_run": "20261109T130623Z"
+        },
+        "notification_reason": "some alerts resolved"
+      },
+      "receipt_id": "038158aa-bee9-4638-b829-f1e767c3d596",
+      "received_at": "2026-11-09T13:07:04.161708+00:00",
+      "execution_id": "11553"
+    }
+  ],
+  "requests": [
+    {
+      "state": "PENDING",
+      "job_id": null,
+      "failures": 0,
+      "lease_id": null,
+      "request_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86-investigate-1",
+      "test_label": "true",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "context_digest": "5af941435928fb8e66d053d0844c753c4d8772641c06ec0f2ba93e71c8c47be4",
+      "first_dispatch_at": null,
+      "initial_context_revision": 3
+    }
+  ],
+  "observed_at": "2026-11-09T13:07:04.316045+00:00",
+  "investigations": [
+    {
+      "status": "INVESTIGATION_PENDING",
+      "incident_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86",
+      "investigation_id": "INV-a0d6736fc2654dbe9dcf7c38cd036e86"
+    }
+  ],
+  "episode_receipts": [
+    {
+      "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+      "receipt_id": "038158aa-bee9-4638-b829-f1e767c3d596"
+    },
+    {
+      "episode_id": "ed3370d8-07eb-47da-8417-67de5fd54506",
+      "receipt_id": "e805a128-8291-4480-acee-32f03db8ccd0"
+    }
+  ],
+  "worker": {
+    "database": "/work/jobs/jobs.sqlite3",
+    "jobs": []
+  },
+  "counts": {
+    "groups": 1,
+    "episodes": 1,
+    "members": 2,
+    "investigations": 1,
+    "requests": 1,
+    "receipts": 2,
+    "agent_jobs": 0
+  }
+}

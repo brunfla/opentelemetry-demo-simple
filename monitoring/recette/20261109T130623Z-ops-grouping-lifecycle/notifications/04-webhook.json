@@ -1,0 +1,70 @@
+{
+  "alerts": [
+    {
+      "endsAt": "2026-11-09T13:07:34.587943Z",
+      "labels": {
+        "pod": "grouping-lifecycle-b",
+        "test": "true",
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingLifecycleCheck",
+        "namespace": "otel-demo",
+        "environment": "local",
+        "service_name": "quote"
+      },
+      "status": "resolved",
+      "startsAt": "2026-11-09T13:06:24.094094Z",
+      "annotations": {
+        "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+        "recipe_run": "20261109T130623Z"
+      },
+      "fingerprint": "52181e6ad5de5e2b",
+      "generatorURL": ""
+    },
+    {
+      "endsAt": "2026-11-09T13:07:34.587957Z",
+      "labels": {
+        "pod": "grouping-lifecycle-c",
+        "test": "true",
+        "cluster": "otel-demo",
+        "alertname": "OpsGroupingLifecycleCheck",
+        "namespace": "otel-demo",
+        "environment": "local",
+        "service_name": "quote"
+      },
+      "status": "resolved",
+      "startsAt": "2026-11-09T13:07:04.435017Z",
+      "annotations": {
+        "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+        "recipe_run": "20261109T130623Z"
+      },
+      "fingerprint": "d240f3447314a198",
+      "generatorURL": ""
+    }
+  ],
+  "status": "resolved",
+  "version": "4",
+  "groupKey": "{}/{alertname!=\"Watchdog\",namespace=\"otel-demo\"}:{alertname=\"OpsGroupingLifecycleCheck\", cluster=\"otel-demo\", namespace=\"otel-demo\", service_name=\"quote\"}",
+  "receiver": "n8n-incidents",
+  "externalURL": "http://alertmanager-0:9093",
+  "groupLabels": {
+    "cluster": "otel-demo",
+    "alertname": "OpsGroupingLifecycleCheck",
+    "namespace": "otel-demo",
+    "service_name": "quote"
+  },
+  "routeLabels": {},
+  "commonLabels": {
+    "test": "true",
+    "cluster": "otel-demo",
+    "alertname": "OpsGroupingLifecycleCheck",
+    "namespace": "otel-demo",
+    "environment": "local",
+    "service_name": "quote"
+  },
+  "truncatedAlerts": 0,
+  "commonAnnotations": {
+    "summary": "Synthetic group member lifecycle test; model dispatch excluded",
+    "recipe_run": "20261109T130623Z"
+  },
+  "notification_reason": "all alerts resolved"
+}

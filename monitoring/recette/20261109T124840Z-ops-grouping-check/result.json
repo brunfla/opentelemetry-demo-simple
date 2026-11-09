@@ -1,0 +1,52 @@
+{
+  "result": "PASS",
+  "run_id": "20261109T124840Z",
+  "checked_at": "2026-11-09T12:49:58.121236Z",
+  "counts_before_replay": {
+    "groups": 1,
+    "episodes": 1,
+    "members": 2,
+    "investigations": 1,
+    "requests": 1,
+    "receipts": 1,
+    "agent_jobs": 0
+  },
+  "counts_after_replay": {
+    "groups": 1,
+    "episodes": 1,
+    "members": 2,
+    "investigations": 1,
+    "requests": 1,
+    "receipts": 2,
+    "agent_jobs": 0
+  },
+  "counts_after_dispatch_observation": {
+    "groups": 1,
+    "episodes": 1,
+    "members": 2,
+    "investigations": 1,
+    "requests": 1,
+    "receipts": 2,
+    "agent_jobs": 0
+  },
+  "identities": {
+    "groups": [
+      "43a9250d-2661-41ec-bea2-776d1a072955"
+    ],
+    "episodes": [
+      "f372b74b-bf06-4cb2-bb27-83d328f598e9"
+    ],
+    "members": [
+      "136796c5107b48c4bd3e86fefbae653824d6c2989de9944439ead38fcfd35660",
+      "76ec2aacac0729b0eca762883196bd956d22fdaeb8ed14321983d3384f09e53c"
+    ],
+    "investigations": [
+      "INV-d67f4ed7a0c443ee84e1be8846a27a2e"
+    ],
+    "requests": [
+      "INV-d67f4ed7a0c443ee84e1be8846a27a2e-investigate-1"
+    ]
+  },
+  "dispatcher_executions_observed": 3,
+  "original_webhook_capture": "Complete JSON values from incident.receipts.payload; original HTTP byte formatting is not retained by JSONB."
+}

@@ -1,0 +1,15 @@
+{
+  "active": true,
+  "version": "3852d806-65db-4243-ba83-dbfe625d2f08",
+  "claim_query": "SELECT c.request_id, c.lease_id, t.investigation_id\n FROM incident.claim_investigation() c\n JOIN incident.investigation_outbox o ON o.request_id=c.request_id\n JOIN incident.tickets t ON t.incident_id=o.incident_id;",
+  "schedule": {
+    "rule": {
+      "interval": [
+        {
+          "field": "seconds",
+          "secondsInterval": 30
+        }
+      ]
+    }
+  }
+}

@@ -59,9 +59,13 @@ components:
 jaeger: {enabled: false}
 opensearch: {enabled: false}
 otel-ebpf-profiler: {enabled: false}
-# Garder le chart et son PVC pour pouvoir réactiver Grafana sans perdre ses données.
+# Garder Grafana actif avec son PVC existant pour consulter les métriques et alertes.
 grafana:
-  replicas: 0
+  replicas: 1
+  # Grafana 13 et ses plugins saturent la limite de 500 Mi lors de la navigation.
+  resources:
+    requests: {memory: 256Mi}
+    limits: {memory: 1Gi}
 opentelemetry-collector:
   resources:
     requests: {cpu: 50m, memory: 96Mi}
